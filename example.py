@@ -1,6 +1,6 @@
 #Leo: example taken from 
 #https://stackoverflow.com/questions/285061/how-do-you-programmatically-set-an-attribute
-#to modify code dynamically
+#to modify Python code dynamically
 class X():
     def __init__(self, string):
         self.dummy = 0
