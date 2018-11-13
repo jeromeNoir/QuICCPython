@@ -9,6 +9,7 @@ readPhysical:(Meredith / Magical Leo)
 
 read EPM and QuICC hdf5 - it is a mapping between what is in the hdf5 and python. Fields are created as needed!!!
 structure of the ouput:   
+    
     myData=readPhysical...
     
     grid output: 
@@ -51,7 +52,7 @@ structure of the ouput:
      
     TODO: how to turn the dictionary keys into field names (set attribute)
     
-    readSpectrall:(Magical Leo)
+    readSpectral:(Magical Leo)
     
     myData.parameters....IMPORTANT geometry
     myData.velocity.poloidal -> 2x(spectral dimension) 
@@ -65,6 +66,6 @@ Reconstruction of Data:
     
     
     
-    Visualisation off Data.
+Visualisation of Data.
     
     
