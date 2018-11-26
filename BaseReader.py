@@ -1,16 +1,6 @@
 import h5py
 import numpy as np
 
-
-
-
-"""
-class BaseReader:
-    
-    ...
-    
-    pass
-"""
     
 class BaseState:
     
@@ -26,21 +16,26 @@ class BaseState:
         # assuming using QuICC state syntax
         
         self.dtype='QuICC'
+        
+        
+        
+        # initialize the .parameters object
+        self.parameters = lambda: None
                    
         # hardcode set time and timestep
-        setattr(self, 'time', fin['run/time'].value)
-        setattr(self, 'timestep', fin['run/timestep'].value)
+        setattr(self.parameters, 'time', fin['run/time'].value)
+        setattr(self.parameters, 'timestep', fin['run/timestep'].value)
         
         # import attributes
         
         for at in fin['physical'].keys():
             
-            setattr(self, at, fin['physical'][at].value)
+            setattr(self.parameters, at, fin['physical'][at].value)
         
         self.geometry = fin.attrs['type']
     pass
 
-class ConvertedState(BaseState):
+class PhysicalState(BaseState):
     
     
     def __init__(self):
@@ -71,9 +66,8 @@ class ConvertedState(BaseState):
                 # set attributes
                 setattr(self.fields, subg, field)
                 
-        #setattr(self, Fields, temp)
         
-class UnconvertedState(BaseState):
+class SpectralState(BaseState):
     
     def __init__(self):
         BaseState.__init__(self)
@@ -85,7 +79,7 @@ class UnconvertedState(BaseState):
         BaseState.read(self,filename)
         fin = self.fin
             
-        # find the fields
+        # find the spectra
         self.fields = lambda:None
         
         for group in fin.keys():
@@ -100,8 +94,12 @@ class UnconvertedState(BaseState):
                     continue
                 if len(field.value.shape)<2:
                     continue
+                    
+                field_temp = field[:]
+                
+                field = np.array(field_temp[:,:,0]+1j*field_temp[:,:,1])
+                                                               
                 
                 # set attributes
                 setattr(self.fields, subg, field)
                 
-        #setattr(self, Fields, temp)
