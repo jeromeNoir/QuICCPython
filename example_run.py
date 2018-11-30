@@ -15,6 +15,7 @@ a = PhysicalState()
 #TODO: See if it's possible to truncate the spectral resolution for the PhysicalState?
 #Ultimately, for a publication one will provide a Python Notebook to generate all the figures
 #state=PhysicalState(filename)
+#Note: write the reader QuICC complaint by default 
 
 a.read(filename)
 
