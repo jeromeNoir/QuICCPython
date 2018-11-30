@@ -7,6 +7,9 @@ filename = '/Users/meredith/Desktop/state_convert.hdf5'
 # Use either SpectralState() or PhysicalState() depending on the file you are reading
 a = PhysicalState()
 
+#Leo: change this to 
+#state=PhysicalState(filename)
+
 a.read(filename)
 
 # Read time and timestep 
