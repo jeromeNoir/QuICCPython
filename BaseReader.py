@@ -12,11 +12,13 @@ class BaseState:
 
         
         attrs = list(self.fin.attrs.keys())
-        if attrs[1] == 'version':
-            self.dtype='QuICC'
-        elif attrs[2] == 'Version':
-            self.dtype='EPM'    
+        
+        if attrs[2] == "Version" and file_type.lower()!= 'quicc':
+            raise RunTimeError("maybe your file is EPM")
             
+        if attrs[1] == "version" and file_type.lower()!= 'epm':
+            raise RunTimeError("maybe your file is QuICC")
+                            
         # TODO: distinguish between EPM and QuICC
         if file_type.lower()!='quicc':
             self.isEPM = True
