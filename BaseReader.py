@@ -69,6 +69,8 @@ class PhysicalState(BaseState):
                     continue
                 
                 # set attributes
+                if self.isEPM:
+                    subg = subg.lower()
                 setattr(self.fields, subg, field)
                 
         
@@ -102,5 +104,12 @@ class SpectralState(BaseState):
                                                                
                 
                 # set attributes
+                if self.isEPM:
+                    # cast the subgroup to lower and transforms e.g.
+                    # VelocityTor to velocity_tor
+                    subg = subg.lower()
+                    tmplist = list(subg)
+                    tmplist.insert(-3,'_')
+                    subg = ''.join(tmplist)
                 setattr(self.fields, subg, field)
                 
