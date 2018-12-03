@@ -9,7 +9,7 @@ class BaseState:
         # PhysicalState('state0000.hdf5',geometry='Sphere'
         fin = h5py.File(filename, 'r')
         self.fin = fin
-        
+
         
         attrs = list(self.fin.attrs.keys())
         
@@ -20,6 +20,8 @@ class BaseState:
             raise RunTimeError("maybe your file is QuICC")
                             
         # TODO: distinguish between EPM and QuICC
+        self.isEPM = False
+        
         if file_type.lower()!='quicc':
             self.isEPM = True
         # assuming using QuICC state syntax
@@ -30,17 +32,22 @@ class BaseState:
         self.parameters = lambda: None
                    
         # hardcode set time and timestep
-        setattr(self.parameters, 'time', fin['run/time'].value)
-        setattr(self.parameters, 'timestep', fin['run/timestep'].value)
+        if !self.isEPM:
+            setattr(self.parameters, 'time', fin['run/time'].value)
+            setattr(self.parameters, 'timestep', fin['run/timestep'].value)
+            for at in fin['physical'].keys():
+                setattr(self.parameters, at, fin['physical'][at].value)
+        else:
+            setattr(self.parameters, 'time', fin['RunParameters/Time'].value)
+            setattr(self.parameters, 'timestep', fin['RunParameters/Step'].value)
         
         # import attributes
-        
-        for at in fin['physical'].keys():
-            
-            setattr(self.parameters, at, fin['physical'][at].value)
+
         
         #self.geometry = fin.attrs['type']
         self.geometry = geometry
+        if(geometry.lower() is not in list('cartesian', 'shell', 'sphere')):
+            raise RuntimeError("I'm sorry but we only deal with Cartesian, Shell and Sphere, try again later")
         # geometry so far is
     pass
 
@@ -53,25 +60,43 @@ class PhysicalState(BaseState):
         BaseState.__init__(self,filename)
         fin = self.fin
         # read the grid
-        for at in fin['mesh']:
-            setattr(self, at, fin['mesh'][at].value)
+        if !self.isEPM:
+            for at in fin['mesh']:
+                setattr(self, at, fin['mesh'][at].value)
             
-        # find the fields
-        self.fields = lambda:None
-        #temp = object()
-        for group in fin.keys():
+            # find the fields
+            self.fields = lambda:None
+            #temp = object()
+            for group in fin.keys():
 
-            for subg in fin[group]:
+                for subg in fin[group]:
 
-                # we check to import fields which are at least 2-dimensional tensors
-                field = np.array(fin[group][subg])
-                if len(field.shape)<2:
-                    continue
-                
-                # set attributes
-                if self.isEPM:
-                    subg = subg.lower()
-                setattr(self.fields, subg, field)
+                    # we check to import fields which are at least 2-dimensional tensors
+                    field = np.array(fin[group][subg])
+                    if len(field.shape)<2:
+                        continue
+
+                    # set attributes
+                    setattr(self.fields, subg, field)
+                    
+        else:
+            for at in fin['FSOuter/grid']:
+                setattr(self, at, fin['FSOuter/grid'][at].value)
+            
+            # find the fields
+            self.fields = lambda:None
+            #temp = object()
+            for group in fin['FSOuter'].keys():
+
+                for subg in fin['FSOuter'][group]:
+
+                    # we check to import fields which are at least 2-dimensional tensors
+                    field = np.array(fin['FSOuter'][group][subg])
+                    if len(field.shape)<2:
+                        continue
+
+                    # set attributes
+                    setattr(self.fields, subg, field)
                 
         
 class SpectralState(BaseState):
@@ -112,4 +137,7 @@ class SpectralState(BaseState):
                     tmplist.insert(-3,'_')
                     subg = ''.join(tmplist)
                 setattr(self.fields, subg, field)
+        #TODO: FOR EPM 
+        #    for at in fin['physical'].keys():
+        #        setattr(self.parameters, at, fin['physical'][at].value)
                 
