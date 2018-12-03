@@ -10,16 +10,18 @@ class BaseState:
         fin = h5py.File(filename, 'r')
         self.fin = fin
 
-        # TODO: distinguish between EPM and QuICC
-        if file_type.lower()!='quicc':
-            self.isEPM = True
-        # assuming using QuICC state syntax
         
         attrs = list(self.fin.attrs.keys())
         if attrs[1] == 'version':
             self.dtype='QuICC'
         elif attrs[2] == 'Version':
-            self.dtype='EPM'       
+            self.dtype='EPM'    
+            
+        # TODO: distinguish between EPM and QuICC
+        if file_type.lower()!='quicc':
+            self.isEPM = True
+        # assuming using QuICC state syntax
+           
             
         
         # initialize the .parameters object
