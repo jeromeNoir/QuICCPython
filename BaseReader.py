@@ -12,9 +12,12 @@ class BaseState:
         # TODO: distinguish between EPM and QuICC
         # assuming using QuICC state syntax
         
-        self.dtype='QuICC'
-        
-        
+        attrs = list(self.fin.attrs.keys())
+        if attrs[1] == 'version':
+            self.dtype='QuICC'
+        elif attrs[2] == 'Version':
+            self.dtype='EPM'       
+            
         
         # initialize the .parameters object
         self.parameters = lambda: None
