@@ -136,8 +136,10 @@ class SpectralState(BaseState):
                     tmplist = list(subg)
                     tmplist.insert(-3,'_')
                     subg = ''.join(tmplist)
+                
                 setattr(self.fields, subg, field)
-        #TODO: FOR EPM 
-        #    for at in fin['physical'].keys():
-        #        setattr(self.parameters, at, fin['physical'][at].value)
+                
+        if self.isEPM:
+            for at in fin['PhysicalParameters'].keys():
+                setattr(self.parameters, at, fin['PhysicalParameters'][at].value)
                 
