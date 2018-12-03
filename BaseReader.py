@@ -4,12 +4,15 @@ import numpy as np
     
 class BaseState:
     
-    def __init__(self, filename):
-    
+    def __init__(self, filename, geometry, file_type='QuICC'):
+        
+        # PhysicalState('state0000.hdf5',geometry='Sphere'
         fin = h5py.File(filename, 'r')
         self.fin = fin
 
         # TODO: distinguish between EPM and QuICC
+        if file_type.lower()!='quicc':
+            self.isEPM = True
         # assuming using QuICC state syntax
         
         attrs = list(self.fin.attrs.keys())
@@ -32,7 +35,9 @@ class BaseState:
             
             setattr(self.parameters, at, fin['physical'][at].value)
         
-        self.geometry = fin.attrs['type']
+        #self.geometry = fin.attrs['type']
+        self.geometry = geometry
+        # geometry so far is
     pass
 
 class PhysicalState(BaseState):
