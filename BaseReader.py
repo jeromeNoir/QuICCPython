@@ -9,7 +9,7 @@ class BaseState:
         # PhysicalState('state0000.hdf5',geometry='Sphere'
         fin = h5py.File(filename, 'r')
         self.fin = fin
-
+        
         
         attrs = list(self.fin.attrs.keys())
         if attrs[1] == 'version':
