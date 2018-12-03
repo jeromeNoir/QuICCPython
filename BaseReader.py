@@ -129,6 +129,13 @@ class SpectralState(BaseState):
                                                                
                 
                 # set attributes
+                if self.isEPM:
+                    # cast the subgroup to lower and transforms e.g.
+                    # VelocityTor to velocity_tor
+                    subg = subg.lower()
+                    tmplist = list(subg)
+                    tmplist.insert(-3,'_')
+                    subg = ''.join(tmplist)
                 setattr(self.fields, subg, field)
         #TODO: FOR EPM 
         #    for at in fin['physical'].keys():
