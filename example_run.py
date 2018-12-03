@@ -15,6 +15,7 @@ my_state_physical = PhysicalState(filename)
 #Cartesian: 
 #TODO: See if it's possible to truncate the spectral resolution for the PhysicalState?
 #Ultimately, for a publication one will provide a Python Notebook to generate all the figures
+
 filename = './state0000.hdf5'
 #my_state_spectral=SpectralState(filename)
 
