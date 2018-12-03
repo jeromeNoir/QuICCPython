@@ -4,10 +4,7 @@ import numpy as np
     
 class BaseState:
     
-    def __init__(self):
-        pass
-    
-    def read(self, filename):
+    def __init__(self, filename):
     
         fin = h5py.File(filename, 'r')
         self.fin = fin
@@ -39,13 +36,9 @@ class PhysicalState(BaseState):
     
     
     def __init__(self):
-        BaseState.__init__(self)
-        pass
-    
-    def read(self, filename):
         
         # apply the read of the base class
-        BaseState.read(self,filename)
+        BaseState.__init__(self,filename)
         fin = self.fin
         # read the grid
         for at in fin['mesh']:
@@ -70,13 +63,9 @@ class PhysicalState(BaseState):
 class SpectralState(BaseState):
     
     def __init__(self):
-        BaseState.__init__(self)
-        pass
-    
-    def read(self, filename):
-        
+                
         # apply the read of the base class
-        BaseState.read(self,filename)
+        BaseState.__init__(self,filename)
         fin = self.fin
             
         # find the spectra
