@@ -1,7 +1,6 @@
 import h5py
 import numpy as np
 
-    
 class BaseState:
     
     def __init__(self, filename, geometry, file_type='QuICC'):
@@ -143,3 +142,55 @@ class SpectralState(BaseState):
             for at in fin['PhysicalParameters'].keys():
                 setattr(self.parameters, at, fin['PhysicalParameters'][at].value)
                 
+#INPUT: 
+#Type of grid: string 
+#N or M: spectral Fourier resolution(nodes) 
+#Output:
+def makeFullGrid(gridType, specRes):
+    """
+    input: gridType: "Fourier"
+    specRes: int spectral resolution to generate grid
+    """
+    gridType = gridType.lower()
+    
+    if gridType == 'fourier' or gridType=='f':
+        #M: 1/3 rule 
+        #physicalRes = 3/2 * 2 specRes = 3* specRes
+        #L: uses the same 
+        #physialRes = specRes 
+        #N:
+        #physicalRes = constant * specRes  
+        physRes = 3*specRes
+        grid = np.linspace(0,2*np.pi, physRes + 1)
+    elif gridType == 'legendre' or gridType == 'l':
+        #applying 1/3 rule
+        physRes = int(3/2 * specRes)
+
+    elif gridType == 'chebyshev' or gridType == 't':
+        #applying 1/3 rule
+        physRes = int(3/2 * specRes)
+        #x=cos((2*[1:1:N]-1)*pi/(2*N))
+        #TODO: Nico 
+        #check physical grid resolution
+        grid=np.cos((2*np.arange(1, physRes+1)-1)*np.pi/(2*physRes))
+
+    elif gridType == 'legendre' or gridType == 'l':
+        #grid = 0 
+        #applying 1/3 rule
+        physRes = int(3/2 * specRes)
+        grid = np.arccos(np.polynomial.legendre.leggauss(physRes)[0])
+        
+    elif gridType == 'worland' or gridType == 'w':
+        #TODO: Leo, check what the relation between physRes and specRes 
+        #this should be about 2*specRes
+        #Philippes thesis 
+        #3/2 N + 3/4 L + 1
+        physRes = specRes 
+        nr = physRes
+        return np.sqrt((np.cos(np.pi*(np.arange(0,2*nr)+0.5)/(2*nr)) + 1.0)/2.0)
+    
+    else:
+        print("Defined types are Fourier, Legendre, Chebyshev, and Worland")
+        grid = 0
+        
+    return grid
