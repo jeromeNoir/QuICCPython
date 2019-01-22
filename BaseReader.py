@@ -54,10 +54,10 @@ class BaseState:
 class PhysicalState(BaseState):
     
     
-    def __init__(self):
+    def __init__(self, filename, geometry, file_type='QuICC'):
         
         # apply the read of the base class
-        BaseState.__init__(self,filename)
+        BaseState.__init__(self, filename, geometry, file_type='QuICC')
         fin = self.fin
         # read the grid
         if !self.isEPM:
@@ -101,10 +101,10 @@ class PhysicalState(BaseState):
         
 class SpectralState(BaseState):
     
-    def __init__(self):
+    def __init__(self, filename, geometry, file_type='QuICC'):
                 
         # apply the read of the base class
-        BaseState.__init__(self,filename)
+        BaseState.__init__(self, filename, geometry, file_type='QuICC')
         fin = self.fin
             
         # find the spectra
