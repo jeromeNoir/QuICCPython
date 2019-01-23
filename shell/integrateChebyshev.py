@@ -45,17 +45,19 @@ class Integrator():
             setattr(self, k, fin[k].value)
         fin.close()
         pass
-        
+
+    # generate grid used for geostrophic integration, this grid is
+    # different than the visualization grid
     def generateGrid(self, state):
-        # here state is needed to obtain the eta parameter    
     
-        # import eta value and others
         # open hdf5 file
         fin = h5py.File(state, 'r')
         LL = fin['/truncation/spectral/dim2D'].value + 1
         MM = fin['/truncation/spectral/dim3D'].value + 1
         NN = fin['/truncation/spectral/dim1D'].value + 1
         self.file_res = (NN, LL, MM)
+
+        # import eta value and others
         E = fin['/physical/ekman'].value
         eta = fin['/physical/rratio'].value
         fin.close()
@@ -207,7 +209,7 @@ def integrate(state,  zInt):
     
     vort_int = integrate(state, Integrator)
     """
-    
+    #TODO: Nicolò, change the syntax to an NLMLib syntax
     fin = h5py.File(state, 'r')
 
     # import the maximal resolution of the file
@@ -333,6 +335,7 @@ def integrate(state,  zInt):
                 #Uz_int[m, id_s] += sum(w*u_z) / fs[id_s]
                 #H_int[m, id_s] += sum(w*u_z*vort_z) / fs[id_s]
 
+    #TODO: change the syntax to NLMLib syntax
     result = {'s': s, 'm': np.arange(Mmax), 'Omega_z': vort_int, 'U_phi': Uphi_int, 'U_s': Us_int}
     return result
 
