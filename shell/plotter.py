@@ -12,8 +12,7 @@ plotter = ShellPlotter('statename.hdf5')
 """
 
 import h5py
-from quicc.projection import spherical, shell
-from quicc.geometry.spherical  import shell_radius as geo
+from projection_tools import spherical, shell
 import numpy as np
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import legendre as leg
@@ -71,7 +70,7 @@ class ShellPlotter:
         self.nM = self.fopen['truncation/spectral/dim3D'].value + 1
 
         # produce the mapping
-        self.a, self.b = geo.linear_r2x(self.ro, self.rratio)
+        self.a, self.b = .5, .5 * (1 + self.rratio)/(1 - self.rratio)
         self.ri = self.ro * self.rratio
 
         # define title dictionary

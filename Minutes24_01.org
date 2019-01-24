@@ -1,0 +1,11 @@
+Order of the day
+* Fix the python2 errors
+Remove syntax with !self.blabla and list constructor
+
+* Functional evaluator
+
+** Over slices
+Inputs:
+- 
+
+** Point by point 
