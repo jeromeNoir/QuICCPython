@@ -31,7 +31,7 @@ class BaseState:
         self.parameters = lambda: None
                    
         # hardcode set time and timestep
-        if !self.isEPM:
+        if not self.isEPM:
             setattr(self.parameters, 'time', fin['run/time'].value)
             setattr(self.parameters, 'timestep', fin['run/timestep'].value)
             for at in fin['physical'].keys():
@@ -45,7 +45,7 @@ class BaseState:
         
         #self.geometry = fin.attrs['type']
         self.geometry = geometry.lower()
-        if(self.geometry is not in list('cartesian', 'shell', 'sphere')):
+        if(self.geometry not in list(['cartesian', 'shell', 'sphere'])):
             raise RuntimeError("I'm sorry but we only deal with Cartesian, Shell and Sphere, try again later")
         # geometry so far is
     pass
@@ -59,7 +59,7 @@ class PhysicalState(BaseState):
         BaseState.__init__(self, filename, geometry, file_type='QuICC')
         fin = self.fin
         # read the grid
-        if !self.isEPM:
+        if not self.isEPM:
             for at in fin['mesh']:
                 setattr(self, at, fin['mesh'][at].value)
             
@@ -165,6 +165,7 @@ class SpectralState(BaseState):
             setattr(self.specRes, 'M', M)
         elif self.geometry == 'cartesian':
             #TODO: Meredith, implement the names for spectral resolution
+            pass
 
         # init the self.physRes object for future use
         self.physRes = lambda: None
@@ -318,8 +319,7 @@ class SpectralState(BaseState):
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'cartesian':
-            raise NotImplementedError('Iso-radius grids are not
-            possible for Cartesian geometries')
+            raise NotImplementedError('Iso-radius grids are not possible for Cartesian geometries')
                         
 
         else:
