@@ -45,7 +45,7 @@ class BaseState:
         
         #self.geometry = fin.attrs['type']
         self.geometry = geometry.lower()
-        if(self.geometry is not in list(['cartesian', 'shell', 'sphere'])):
+        if(self.geometry not in list(['cartesian', 'shell', 'sphere'])):
             raise RuntimeError("I'm sorry but we only deal with Cartesian, Shell and Sphere, try again later")
         # geometry so far is
     pass
@@ -319,8 +319,7 @@ class SpectralState(BaseState):
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'cartesian':
-            raise NotImplementedError('Iso-radius grids are not
-            possible for Cartesian geometries')
+            raise NotImplementedError('Iso-radius grids are not possible for Cartesian geometries')
                         
 
         else:
