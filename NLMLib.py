@@ -123,9 +123,13 @@ class SpectralState(BaseState):
                     continue
                     
                 field_temp = field[:]
-                
-                field = np.array(field_temp[:,:,0]+1j*field_temp[:,:,1])
-                                                               
+
+                if self.geometry == 'sphere' or self.geometry == 'shell':
+                    field = np.array(field_temp[:,:,0]+1j*field_temp[:,:,1])
+
+                else:
+                    field = np.array(field_temp[:, :, :, 0] + 1j*field_temp[:, :, :, 1])
+                    
                 
                 # set attributes
                 if self.isEPM:
