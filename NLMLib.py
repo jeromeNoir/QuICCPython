@@ -430,7 +430,7 @@ class SpectralState(BaseState):
             spectral_coeff = getattr(my_state.fields,field)
             [nx , ny , nz ] = spectral_coeff.shape
             x = np.array([level])
-            PI = SpectralState.Fourier_eval(nz, 0.5, 0.5, x);
+            PI = SpectralState.Cheb_eval(nz, 0.5, 0.5, x);
             
             padfield = np.zeros((int((nx+1)*3/2), int((ny+1)*3/2), nz  ), dtype=complex)
             padfield[:(ny+1), :ny, :] = spectral_coeff[:(ny+1),:,:]
