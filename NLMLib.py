@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+from numpy.polynomial import chebyshev as cheb
 
 class BaseState:
     
@@ -31,7 +32,7 @@ class BaseState:
         self.parameters = lambda: None
                    
         # hardcode set time and timestep
-        if !self.isEPM:
+        if not self.isEPM:
             setattr(self.parameters, 'time', fin['run/time'].value)
             setattr(self.parameters, 'timestep', fin['run/timestep'].value)
             for at in fin['physical'].keys():
@@ -45,7 +46,7 @@ class BaseState:
         
         #self.geometry = fin.attrs['type']
         self.geometry = geometry.lower()
-        if(self.geometry is not in list('cartesian', 'shell', 'sphere')):
+        if(self.geometry not in list(['cartesian', 'shell', 'sphere'])):
             raise RuntimeError("I'm sorry but we only deal with Cartesian, Shell and Sphere, try again later")
         # geometry so far is
     pass
@@ -59,7 +60,7 @@ class PhysicalState(BaseState):
         BaseState.__init__(self, filename, geometry, file_type='QuICC')
         fin = self.fin
         # read the grid
-        if !self.isEPM:
+        if not self.isEPM:
             for at in fin['mesh']:
                 setattr(self, at, fin['mesh'][at].value)
             
@@ -123,9 +124,13 @@ class SpectralState(BaseState):
                     continue
                     
                 field_temp = field[:]
-                
-                field = np.array(field_temp[:,:,0]+1j*field_temp[:,:,1])
-                                                               
+
+                if self.geometry == 'sphere' or self.geometry == 'shell':
+                    field = np.array(field_temp[:,:,0]+1j*field_temp[:,:,1])
+
+                else:
+                    field = np.array(field_temp[:, :, :, 0] + 1j*field_temp[:, :, :, 1])
+                    
                 
                 # set attributes
                 if self.isEPM:
@@ -164,7 +169,12 @@ class SpectralState(BaseState):
             setattr(self.specRes, 'L', L)
             setattr(self.specRes, 'M', M)
         elif self.geometry == 'cartesian':
-            #TODO: Meredith, implement the names for spectral resolution
+            N = fin['/truncation/spectral/dim1D'].value + 1
+            kx = fin['/truncation/spectral/dim2D'].value + 1
+            ky = fin['/truncation/spectral/dim3D'].value + 1
+            setattr(self.specRes, 'N', N)
+            setattr(self.specRes, 'ky', ky)
+            setattr(self.specRes, 'kx', kx)
 
         # init the self.physRes object for future use
         self.physRes = lambda: None
@@ -255,10 +265,8 @@ class SpectralState(BaseState):
             y = self.make1DGrid('Legendre', self.specRes.L)
 
         elif self.geometry == 'cartesian':
-            #TODO: Meredith, implement the name of the 2 spectral
-            #resolution needed
-            x = self.make1DGrid(..., ...)
-            y = self.make1DGrid(..., ...)
+            print('Please use the makeVerticalGrid function for a cartesian geometry')
+            pass
 
         else:
             raise RuntimeError('Meridional grid for unknown geometry')
@@ -289,13 +297,72 @@ class SpectralState(BaseState):
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'cartesian':
-            #TODO: Meredith, implement the name of the 2 spectral
-            #resolution needed
-            x = self.make1DGrid(..., ...)
-            y = self.make1DGrid(..., ...)
+            print('Please use the makeHorizontalGrid function for a cartesian geometry')
+            pass
 
         else:
             raise RuntimeError('Meridional grid for unknown geometry')
+        # make the 2D grid via Kronecker product
+        X, Y = np.meshgrid(x, y)
+
+        return X, Y, x, y
+
+    def makeHorizontalGrid(self):
+        """
+        INPUT:
+        None
+        OUTPUT:
+        X: np.matrix; first coordinate on a grid
+        Y: np.matrix; second coordinate on a grid
+        x: np.array; first grid
+        y: np.array; second grid
+        """
+        # set default argument
+        x, y = None, None
+        if self.geometry == 'shell' or self.geometry == 'sphere':
+            print('Please use the makeEquatorialGrid function for sphere or shell geometry')
+            pass
+
+        elif self.geometry == 'cartesian':
+            x = self.make1DGrid('Fourier', self.specRes.kx)
+            y = self.make1DGrid('Fourier', self.specRes.ky)
+
+        else:
+            raise RuntimeError('Horizontal grid for unknown geometry')
+        # make the 2D grid via Kronecker product
+        X, Y = np.meshgrid(x, y)
+
+        return X, Y, x, y
+
+    def makeVerticalGrid(self, direction):
+        """
+        INPUT:
+        None
+        OUTPUT:
+        X: np.matrix; first coordinate on a grid
+        Y: np.matrix; second coordinate on a grid
+        x: np.array; first grid
+        y: np.array; second grid
+        """
+        # set default argument
+        x, y = None, None
+        if self.geometry == 'shell' or self.geometry == 'sphere':
+            print('Please use the makeMeridionalGrid function for sphere or shell geometry')
+            pass
+
+        elif self.geometry == 'cartesian':
+            if direction=='x':
+                #'Grid for (z,x)'
+                x = self.make1DGrid('Chebyshev', self.specRes.N)
+                y = self.make1DGrid('Fourier', self.specRes.kx)
+            elif direction == 'y':
+                #'Grid for (z,y)'
+                x = self.make1DGrid('Chebyshev', self.specRes.N)
+                y = self.make1DGrid('Fourier', self.specRes.ky)
+            else:
+                raise RuntimeError('direction does not make sense - should be either x or y')
+        else:
+            raise RuntimeError('Horizontal grid for unknown geometry')
         # make the 2D grid via Kronecker product
         X, Y = np.meshgrid(x, y)
 
@@ -318,8 +385,7 @@ class SpectralState(BaseState):
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'cartesian':
-            raise NotImplementedError('Iso-radius grids are not
-            possible for Cartesian geometries')
+            raise NotImplementedError('Iso-radius grids are not possible for Cartesian geometries')
                         
 
         else:
@@ -328,4 +394,50 @@ class SpectralState(BaseState):
         X, Y = np.meshgrid(x, y)
 
         return X, Y, x, y
+    
+    def Cheb_eval(nr, a, b, r):
 
+        # evaluates the projection matrix for the chebyshev basis
+        xx = (np.array(r)-b)/a
+
+        coeffs = np.eye(nr)*2
+
+        #coeffs = np.eye(nr)
+        coeffs[0,0]=1.
+        # return the coo type matrix, because it is needed for integration (evaluation of antiderivative) purposes
+        #return spsp.lil_matrix(cheb.chebval(xx, coeffs).transpose())
+        return np.mat(cheb.chebval(xx, coeffs).transpose())
+    
+
+
+    def makeHorizontalSlice(file, geometry, field, level):
+        """
+        INPUT:
+        file 
+        geometry
+        field
+        level = should be a value 0 to 1 to denote the level you want in Z
+        OUTPUT:
+        slice
+        """
+
+        if geometry == 'shell' or geometry == 'sphere':
+            print('Please use the makeEquatorialSlice function for a sphere or shell geometry')
+            pass
+
+        elif geometry == 'cartesian':
+            my_state = SpectralState(file,geometry)
+            spectral_coeff = getattr(my_state.fields,field)
+            [nx , ny , nz ] = spectral_coeff.shape
+            x = np.array([level])
+            PI = SpectralState.Cheb_eval(nz, 0.5, 0.5, x);
+            
+            padfield = np.zeros((int((nx+1)*3/2), int((ny+1)*3/2), nz  ), dtype=complex)
+            padfield[:(ny+1), :ny, :] = spectral_coeff[:(ny+1),:,:]
+            padfield[-(ny-1):, :ny, :] = spectral_coeff[-(ny-1):, :, :]
+            real_field = np.fft.irfft2(np.dot(padfield, PI.T))*((nx+1)*3/2)*((ny+1)*3)
+
+        else:
+            raise RuntimeError('error')
+
+        return real_field

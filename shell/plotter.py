@@ -586,7 +586,7 @@ class ShellPlotter:
                 Field_theta += Ylm_sin * np.conj(rad_part_tor) * eimp *factor
                 Field_phi -= dYlm * np.conj(rad_part_tor) * eimp *factor
 
-        else:
+        else: # equatorial cut
 
             # prepare arrays
             eimp = np.exp(1j * m * kwargs['pphi'])
@@ -636,7 +636,3 @@ class MidpointNormalize(Normalize):
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
         return np.ma.masked_array(np.interp(value, x, y))
 
-"""
-    def prepare_rotation(self):
-
-"""
