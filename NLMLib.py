@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 from numpy.polynomial import chebyshev as cheb
+from scipy.fftpack import dct, idct
 
 class BaseState:
     
@@ -408,12 +409,36 @@ class SpectralState(BaseState):
         #return spsp.lil_matrix(cheb.chebval(xx, coeffs).transpose())
         return np.mat(cheb.chebval(xx, coeffs).transpose())
     
+def Fourier_eval(nr, r):
 
+        # evaluates the projection matrix for the chebyshev basis
+        xx = np.array(r);
+        v = np.zeros((nr,1),dtype=complex)
+        nr2 = int(nr/2)
+        for k in range(-nr2,nr2+1):
+            v[k+nr2] = np.exp(k*xx*1j)
+        v[nr2] = 0.5;
+
+
+        return np.mat(v.transpose())
+
+    def Fourier_eval_shift(nr, r):
+
+        # evaluates the projection matrix for the chebyshev basis
+        xx = np.array(r);
+        v = np.zeros((nr,1),dtype=complex)
+        nr2 = int(nr/2)
+        for k in range(-nr2,nr2+1):
+            v[k] = np.exp(k*xx*1j)
+        v[0] = 0.5;
+
+
+        return np.mat(v.transpose())
 
     def makeHorizontalSlice(file, geometry, field, level):
         """
         INPUT:
-        file 
+        file
         geometry
         field
         level = should be a value 0 to 1 to denote the level you want in Z
@@ -431,13 +456,88 @@ class SpectralState(BaseState):
             [nx , ny , nz ] = spectral_coeff.shape
             x = np.array([level])
             PI = SpectralState.Cheb_eval(nz, 0.5, 0.5, x);
-            
+
             padfield = np.zeros((int((nx+1)*3/2), int((ny+1)*3/2), nz  ), dtype=complex)
-            padfield[:(ny+1), :ny, :] = spectral_coeff[:(ny+1),:,:]
-            padfield[-(ny-1):, :ny, :] = spectral_coeff[-(ny-1):, :, :]
+            padfield[:(int((nx+1)/2)+1), :ny, :] = spectral_coeff[:(int((nx+1)/2)+1),:,:]
+            padfield[-(int((nx)/2)):, :ny, :] = spectral_coeff[-(int((nx)/2)):, :, :]
             real_field = np.fft.irfft2(np.dot(padfield, PI.T))*((nx+1)*3/2)*((ny+1)*3)
 
         else:
-            raise RuntimeError('error')
+            raise RuntimeError('error in makeHorizontalSlice')
 
         return real_field
+
+
+    def makeVerticalSlice(file, geometry, field, direction, level):
+        """
+            INPUT:
+            geometry
+            field
+            direction = either 'x' or 'y'
+            level = should be a value (0, 2pi) you want in that direction
+            OUTPUT:
+            """
+
+        if geometry == 'shell' or geometry == 'sphere':
+            print('Please use the makeMeridionalSlice function for a sphere or shell geometry')
+            pass
+
+        elif geometry == 'cartesian':
+            my_state = SpectralState(file,geometry)
+            spectral_coeff = getattr(my_state.fields,field)
+            [nx , ny , nz ] = spectral_coeff.shape
+
+            if direction == 'x':
+                PI = SpectralState.Fourier_eval_shift(nx, level);
+
+                test = np.zeros((ny,nz), dtype=complex)
+                for i in range(0,nz):
+                    test[:,i] = np.ndarray.flatten(np.dot(PI,spectral_coeff[:,:,i]))
+
+                padfield = np.zeros( (int((ny+1)*3/2), int(nz*3/2)  ), dtype=complex)
+                padfield[ :ny, :nz] = test[:,:]
+                padfield[ :ny, :nz] = test[:,:]
+
+                real_field = np.zeros((int((ny+1)*3/2), int(nz*3/2)),  dtype=complex)
+                real_field2 = np.zeros((int(ny*3), int(nz*3/2)),  dtype=complex)
+
+                for i in range(0, int((ny)*3/2)):
+                    real_field[i,:] = idct(padfield[i,:])
+
+                for i in range(0,int(nz*3/2)):
+                    real_field2[:,i] = np.fft.irfft(real_field[:,i])*((nx+1)*3/2)*(2)
+
+            elif direction == 'y':
+                PI = SpectralState.Fourier_eval(nx, level);
+
+                spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
+
+                total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
+                total[:,:(ny-1),:] = np.fliplr(spectral_coeff_cc[:,:(ny-1),:])
+                total[:,:(ny),:] = spectral_coeff[:,:,:]
+
+                test = np.zeros((nx,nz), dtype=complex)
+
+                for i in range(0,nz):
+                    test[:,i] = np.ndarray.flatten(np.dot(total[:,:,i],PI.T))
+
+                padfield = np.zeros((int((nx+1)*3/2), int(nz*3/2)), dtype=complex)
+                padfield[:(ny+1),  :nz] = test[:(ny+1),:]
+                padfield[-(ny-1):, :nz] = test[-(ny-1):,  :]
+
+                real_field = np.zeros((int((nx+1)*3/2), int(nz*3/2)),  dtype=complex)
+                real_field2 = np.zeros((int((nx+1)*3/2), int(nz*3/2)),  dtype=complex)
+
+                for i in range(0, int((nx+1)*3/2)):
+                    real_field[i,:] = idct(padfield[i,:])
+
+                for i in range(0,int(nz*3/2)):
+                    real_field2[:,i] = np.fft.ifft(real_field[:,i])*((nx+1)*3/2)*(2)
+
+            else:
+                raise RuntimeError('Direction for vertical slice given incorrectly')
+
+        else:
+            raise RuntimeError('error in the makeVerticalSlice function')
+
+        return real_field2
