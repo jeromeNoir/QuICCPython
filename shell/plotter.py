@@ -24,17 +24,6 @@ rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 rc('text.latex', preamble=r'\usepackage{bm}')
 
-def rank_1_matrix(a, b):
-    # Input:
-    # a: column vector
-    # b: row vector
-
-    a = np.reshape(a, (-1, 1))
-    b = np.reshape(b, (-1, 1))
-
-    return np.kron(a, b.T)
-
-
 class ShellPlotter:
 
     def __init__(self, filename, *args, **kwargs):
