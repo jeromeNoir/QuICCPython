@@ -2,7 +2,7 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
-
+import os 
 __version__ = '0.0.1'
 
 
@@ -21,10 +21,22 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
 
 
+env = os.environ.copy() #takes env variables
+env['QUICC_DIR']
+sources = ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp', 
+        'src/Base/Precision.cpp', 
+        '/Users/leo/quicc-github/QuICC/src/Exceptions/Exception.cpp',
+        '/Users/leo/quicc-github/QuICC/src/PolynomialTransforms/ThreeTermRecurrence.cpp']
+
+for source in sources:
+    source = env['QUICC_DIR']+source 
+
+sources.append['src/quicc.cpp']
+
 ext_modules = [
     Extension(
         'quicc_bind',
-        ['src/quicc.cpp'],
+        sources,
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),
