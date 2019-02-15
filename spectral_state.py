@@ -2,7 +2,7 @@ from base_state import BaseState
 import tools
 import h5py
 import numpy as np
-from scipy.fftpack import idct
+from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
 import sys
 sys.path.append('/home/nicolol/workspace/QuICC/Python/')
@@ -340,7 +340,7 @@ class SpectralState(BaseState):
             spectral_coeff = getattr(my_state.fields,field)
             [nx , ny , nz ] = spectral_coeff.shape
             x = np.array([level])
-            PI = tools.Cheb_eval(nz, 0.5, 0.5, x);
+            PI = tools.cheb_eval(nz, 0.5, 0.5, x);
             
             padfield = np.zeros((int((nx+1)*3/2), int((ny+1)*3/2), nz  ), dtype=complex)
             padfield[:(ny+1), :ny, :] = spectral_coeff[:(ny+1),:,:]
@@ -351,6 +351,108 @@ class SpectralState(BaseState):
             raise RuntimeError('Unknown geometry')
 
         return real_field
+
+    def makeVerticalSlice(file, geometry, field, direction, level):
+        """
+            INPUT:
+            geometry
+        field
+            direction = either 'x' or 'y'
+            level = should be a value (0, 2pi) you want in that direction
+            OUTPUT:
+            """
+
+        if geometry == 'shell' or geometry == 'sphere':
+            print('Please use the makeMeridionalSlice function for a sphere or shell geometry')
+            pass
+        
+        elif geometry == 'cartesian':
+            my_state = SpectralState(file,geometry)
+            spectral_coeff = getattr(my_state.fields,field)
+            [nx , ny , nz ] = spectral_coeff.shape
+
+            if direction == 'x':
+                PI = tools.fourier_eval_shift(nx, level);
+
+                test = np.zeros((ny,nz), dtype=complex)
+                for i in range(0,nz):
+                    test[:,i] = np.ndarray.flatten(np.dot(PI,spectral_coeff[:,:,i]))
+
+                padfield = np.zeros( (int((ny+1)*3/2), int(nz*3/2)  ), dtype=complex)
+                padfield[ :ny, :nz] = test[:,:]
+                padfield[ :ny, :nz] = test[:,:]
+
+                real_field = np.zeros((int((ny+1)*3/2), int(nz*3/2)),  dtype=complex)
+                real_field2 = np.zeros((int(ny*3), int(nz*3/2)),  dtype=complex)
+
+                for i in range(0, int((ny)*3/2)):
+                    real_field[i,:] = idct(padfield[i,:])
+
+                for i in range(0,int(nz*3/2)):
+                    real_field2[:,i] = np.fft.irfft(real_field[:,i])*((nx+1)*3/2)*(2)
+
+            elif direction == 'y':
+                PI = tools.fourier_eval(nx, level);
+
+                spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
+
+                total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
+                total[:,:(ny-1),:] = np.fliplr(spectral_coeff_cc[:,:(ny-1),:])
+                total[:,:(ny),:] = spectral_coeff[:,:,:]
+
+                test = np.zeros((nx,nz), dtype=complex)
+
+                for i in range(0,nz):
+                    test[:,i] = np.ndarray.flatten(np.dot(total[:,:,i],PI.T))
+
+                padfield = np.zeros((int((nx+1)*3/2), int(nz*3/2)), dtype=complex)
+                padfield[:(ny+1),  :nz] = test[:(ny+1),:]
+                padfield[-(ny-1):, :nz] = test[-(ny-1):,  :]
+
+                real_field = np.zeros((int((nx+1)*3/2), int(nz*3/2)),  dtype=complex)
+                real_field2 = np.zeros((int((nx+1)*3/2), int(nz*3/2)),  dtype=complex)
+
+                for i in range(0, int((nx+1)*3/2)):
+                    real_field[i,:] = idct(padfield[i,:])
+
+                for i in range(0,int(nz*3/2)):
+                    real_field2[:,i] = np.fft.ifft(real_field[:,i])*((nx+1)*3/2)*(2)
+
+            else:
+                raise RuntimeError('Direction for vertical slice given incorrectly')
+
+        else:
+            raise RuntimeError('error in the makeVerticalSlice function')
+
+        return real_field2
+    
+    def PointValue(file, geometry, field, Xvalue, Yvalue, Zvalue):
+
+        if geometry == 'shell' or geometry == 'sphere':
+            print('This Needs work')
+            pass
+
+        elif geometry == 'cartesian':
+            my_state = SpectralState(file,geometry)
+            spectral_coeff = getattr(my_state.fields,field)
+            [nx , ny , nz ] = spectral_coeff.shape
+
+            spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
+            total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
+            total[:,:(ny-1),:] = np.fliplr(spectral_coeff_cc[:,:(ny-1),:])
+            total[:,(ny-1):,:] = spectral_coeff[:,:,:]
+            [nx2 , ny2 , nz2 ] =total.shape
+
+            Proj_cheb = SpectralState.Cheb_eval(nz2, 0.5, 0.5, Zvalue)
+            Proj_fourier_x = tools.fourier_eval(nx2, Xvalue)
+            Proj_fourier_y = tools.fourier_eval_shift(ny2, Yvalue)
+
+            value1 = np.dot(total, Proj_cheb.T)
+            value2 = np.dot(value1, Proj_fourier_y.T)
+            value3 = np.dot(value2.T,Proj_fourier_x.T )
+
+        return float(value3.real)
+
 
     # function creating a dictionary to index data for SLFl, WLFl,
     # SLFm or WLFm geometries
