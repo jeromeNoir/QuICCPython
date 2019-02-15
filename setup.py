@@ -35,7 +35,7 @@ include_dirs =   ['External/eigen3',
                         'include']
 
 sources = [env['QUICC_DIR']+ s for s in sources]
-sources.append('src/quicc.cpp')
+sources.append('src/QuICC.cpp')
 include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
 
 include_dirs=[# Path to pybind11 headers
@@ -91,6 +91,8 @@ class BuildExt(build_ext):
 
     if sys.platform == 'darwin':
         c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7', '-D QUICC_SMARTPTR_CXX0X', '-D QUICC_SHNORM_UNITY', '-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
+    else:
+        c_opts['unix'] += [ '-D QUICC_SMARTPTR_CXX0X', '-D QUICC_SHNORM_UNITY', '-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
@@ -109,8 +111,8 @@ class BuildExt(build_ext):
 setup(
     name='quicc_bind',
     version=__version__,
-    author='Sylvain Corlay',
-    author_email='sylvain.corlay@gmail.com',
+    author='Leonardo Echeveria Pazos',
+    author_email='leonardo.echeverria@erdw.ethz.com',
     url='https://github.com/pybind/quicc_bind',
     description='A test project using pybind11',
     long_description='',
