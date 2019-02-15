@@ -35,7 +35,7 @@ include_dirs =   ['External/eigen3',
                         'include']
 
 sources = [env['QUICC_DIR']+ s for s in sources]
-sources.append('src/QuICC.cpp')
+sources.append('src/quicc.cpp')
 include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
 
 include_dirs=[# Path to pybind11 headers
