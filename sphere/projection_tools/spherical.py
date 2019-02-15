@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 
 import numpy as np
 import sys
-sys.path.append('/home/nicolol/workspace/QuICC/Scripts/Python/pybind11/')
+sys.path.append('/Users/leo/quicc-github/QuICC/Scripts/Python/pybind11/')
 
 import QuICC as quicc_pybind
 
