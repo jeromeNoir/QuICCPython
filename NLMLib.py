@@ -409,7 +409,7 @@ class SpectralState(BaseState):
         #return spsp.lil_matrix(cheb.chebval(xx, coeffs).transpose())
         return np.mat(cheb.chebval(xx, coeffs).transpose())
     
-def Fourier_eval(nr, r):
+    def Fourier_eval(nr, r):
 
         # evaluates the projection matrix for the chebyshev basis
         xx = np.array(r);
