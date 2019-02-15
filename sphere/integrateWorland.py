@@ -1,17 +1,18 @@
 """
-Functions used to perform a Z-integral using a Legendre Quadrature in a Spherical Shell 
-Author: nicolo.lardelli@erdw.ethz.ch
+Functions used to perform a Z-integral using a Legendre Quadrature in a Sphere 
+Author: leonardo.echeverria@erdw.ethz.ch
 """
-from projection_tools import spherical, shell
+import sys
+sys.path.append('/home/nicolol/workspace/QuICC/Python')
+from quicc.projection import sphere
 import numpy as np
 from numpy.polynomial.legendre import leggauss
 import h5py 
 from numpy import fft
                    
 class Integrator():
-
     # constructor
-    # res = (Ns, Nmax, Lmax, Mmax): tupla of integers
+    # res = (Ns, Nmax, Lmax, Mmax): resolution in tupla of integers
     def __init__(self, res=None):
         # usage:
         # if res is defined -> use for precomputation
@@ -57,17 +58,10 @@ class Integrator():
 
         # import eta value and others
         E = fin['/physical/ekman'].value
-        eta = fin['/physical/rratio'].value
         fin.close()
-        
-        # compute the diffeomorfism parameters between Tchebyshev and radius space
-        self.a = a = .5
-        self.b = b =.5*(1+eta)/(1-eta)
         
         # compute boundary layer
         d = 10.*E**.5
-        riBoundary = eta/(1-eta)+d
-        roBoundary = 1/(1-eta)-d
         
         # TODO: decide if the one needs to import the resolution from an argument
         # compute the outside  tangent cylinder part

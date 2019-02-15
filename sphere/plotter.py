@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """ Implementation of shell_graphical.
 
-author: Nicolò Lardelli
-data: 07.02.18
-This visualizer works with all SphericalShellsModels
+author: Leonardo Echeverria 
+data: 15.02.18
+This visualizer works with all SphereModels
 1) Instantiate plotter:  
 plotter = ShellPlotter('statename.hdf5')
 2) Plot and return data data:
@@ -12,9 +12,10 @@ plotter = ShellPlotter('statename.hdf5')
 """
 
 import h5py
-from projection_tools import spherical, shell
+from quicc.projection import spherical, shell
+from quicc.geometry.spherical  import shell_radius as geo
 import numpy as np
-from numpy.polynomial import chebyshev as cheb
+#from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import legendre as leg
 from matplotlib import pyplot as pp
 from matplotlib import rc
@@ -23,6 +24,17 @@ from matplotlib.colors import LogNorm, Normalize, LinearSegmentedColormap
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 rc('text.latex', preamble=r'\usepackage{bm}')
+
+def rank_1_matrix(a, b):
+    # Input:
+    # a: column vector
+    # b: row vector
+
+    a = np.reshape(a, (-1, 1))
+    b = np.reshape(b, (-1, 1))
+
+    return np.kron(a, b.T)
+
 
 class ShellPlotter:
 
@@ -59,7 +71,7 @@ class ShellPlotter:
         self.nM = self.fopen['truncation/spectral/dim3D'].value + 1
 
         # produce the mapping
-        self.a, self.b = .5, .5 * (1 + self.rratio)/(1 - self.rratio)
+        self.a, self.b = geo.linear_r2x(self.ro, self.rratio)
         self.ri = self.ro * self.rratio
 
         # define title dictionary
