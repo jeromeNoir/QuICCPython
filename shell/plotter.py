@@ -12,8 +12,7 @@ plotter = ShellPlotter('statename.hdf5')
 """
 
 import h5py
-from quicc.projection import spherical, shell
-from quicc.geometry.spherical  import shell_radius as geo
+from projection_tools import spherical, shell
 import numpy as np
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import legendre as leg
@@ -24,17 +23,6 @@ from matplotlib.colors import LogNorm, Normalize, LinearSegmentedColormap
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
 rc('text.latex', preamble=r'\usepackage{bm}')
-
-def rank_1_matrix(a, b):
-    # Input:
-    # a: column vector
-    # b: row vector
-
-    a = np.reshape(a, (-1, 1))
-    b = np.reshape(b, (-1, 1))
-
-    return np.kron(a, b.T)
-
 
 class ShellPlotter:
 
@@ -71,7 +59,7 @@ class ShellPlotter:
         self.nM = self.fopen['truncation/spectral/dim3D'].value + 1
 
         # produce the mapping
-        self.a, self.b = geo.linear_r2x(self.ro, self.rratio)
+        self.a, self.b = .5, .5 * (1 + self.rratio)/(1 - self.rratio)
         self.ri = self.ro * self.rratio
 
         # define title dictionary

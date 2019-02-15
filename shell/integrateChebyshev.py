@@ -2,9 +2,7 @@
 Functions used to perform a Z-integral using a Legendre Quadrature in a Spherical Shell 
 Author: nicolo.lardelli@erdw.ethz.ch
 """
-import sys
-sys.path.append('/home/nicolol/workspace/QuICC/Python')
-from quicc.projection import spherical, shell
+from projection_tools import spherical, shell
 import numpy as np
 from numpy.polynomial.legendre import leggauss
 import h5py 
