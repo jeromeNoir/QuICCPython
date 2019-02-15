@@ -541,3 +541,30 @@ def Fourier_eval(nr, r):
             raise RuntimeError('error in the makeVerticalSlice function')
 
         return real_field2
+    
+    def PointValue(file, geometry, field, Xvalue, Yvalue, Zvalue):
+
+        if geometry == 'shell' or geometry == 'sphere':
+            print('This Needs work')
+            pass
+
+        elif geometry == 'cartesian':
+            my_state = SpectralState(file,geometry)
+            spectral_coeff = getattr(my_state.fields,field)
+            [nx , ny , nz ] = spectral_coeff.shape
+
+            spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
+            total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
+            total[:,:(ny-1),:] = np.fliplr(spectral_coeff_cc[:,:(ny-1),:])
+            total[:,(ny-1):,:] = spectral_coeff[:,:,:]
+            [nx2 , ny2 , nz2 ] =total.shape
+
+            Proj_cheb = SpectralState.Cheb_eval(nz2, 0.5, 0.5, Zvalue)
+            Proj_fourier_x = SpectralState.Fourier_eval(nx2, Xvalue)
+            Proj_fourier_y = SpectralState.Fourier_eval_shift(ny2, Yvalue)
+
+            value1 = np.dot(total, Proj_cheb.T)
+            value2 = np.dot(value1, Proj_fourier_y.T)
+            value3 = np.dot(value2.T,Proj_fourier_x.T )
+
+        return float(value3.real)
