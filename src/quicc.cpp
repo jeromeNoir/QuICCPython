@@ -12,6 +12,10 @@ void plm( Eigen::Ref<QuICC::Matrix> op, int m, QuICC::Array igrid){
     op = mOp;
 }
 
+PYBIND11_MODULE(QuICC, m) {
+    m.def("plm", &plm);
+}
+
 int main(){
 return 0;
 }

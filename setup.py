@@ -111,7 +111,7 @@ class BuildExt(build_ext):
 setup(
     name='quicc_bind',
     version=__version__,
-    author='Leonardo Echeveria Pazos',
+    author='Leonardo Echeveria',
     author_email='leonardo.echeverria@erdw.ethz.com',
     url='https://github.com/pybind/quicc_bind',
     description='A test project using pybind11',
