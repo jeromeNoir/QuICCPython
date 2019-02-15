@@ -22,26 +22,32 @@ class get_pybind_include(object):
 
 
 env = os.environ.copy() #takes env variables
-env['QUICC_DIR']
-sources = ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp', 
-        'src/Base/Precision.cpp', 
-        '/Users/leo/quicc-github/QuICC/src/Exceptions/Exception.cpp',
-        '/Users/leo/quicc-github/QuICC/src/PolynomialTransforms/ThreeTermRecurrence.cpp']
 
-for source in sources:
-    source = env['QUICC_DIR']+source 
+sources =    ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp',
+                    'src/Base/Precision.cpp',
+                    'src/PolynomialTransforms/WorlandPolynomial.cpp',
+                    'src/Exceptions/Exception.cpp',
+                    'src/PolynomialTransforms/ThreeTermRecurrence.cpp',
+                    'src/Quadratures/LegendreRule.cpp',
+                    'src/Quadratures/PrueferAlgorithm.cpp']
 
-sources.append['src/quicc.cpp']
+include_dirs =   ['External/eigen3', 
+                        'include']
+
+sources = [env['QUICC_DIR']+ s for s in sources]
+sources.append('src/quicc.cpp')
+include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
+
+include_dirs=[# Path to pybind11 headers
+        get_pybind_include(),
+        get_pybind_include(user=True)] + include_dirs
+
+print('include:', include_dirs)
 
 ext_modules = [
     Extension(
         'quicc_bind',
-        sources,
-        include_dirs=[
-            # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True)
-        ],
+        sources, include_dirs=include_dirs,
         language='c++'
     ),
 ]
@@ -76,7 +82,6 @@ def cpp_flag(compiler):
         raise RuntimeError('Unsupported compiler -- at least C++11 support '
                            'is needed!')
 
-
 class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
     c_opts = {
@@ -85,7 +90,7 @@ class BuildExt(build_ext):
     }
 
     if sys.platform == 'darwin':
-        c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
+        c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7', '-D QUICC_SMARTPTR_CXX0X', '-D QUICC_SHNORM_UNITY', '-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
