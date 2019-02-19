@@ -5,7 +5,7 @@ import numpy as np
 from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
 import sys
-sys.path.append('/home/nicolol/workspace/QuICC/Python/')
+sys.path.append('/Users/leo/quicc-github/QuICC/Python/')
 from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
 
 class SpectralState(BaseState):
@@ -158,7 +158,10 @@ class SpectralState(BaseState):
             #TODO: Leo, check what the relation between physRes and
             # specRes this should be about 2*specRes Philippes thesis
             # 3/2 N + 3/4 L + 1
-            self.physRes.nR = specRes 
+            # e.g: N=10, L=10, nR = 29; N=10, L=20, nR = 36
+            # 3*(N+1)//2 + 1 + 3*(L+1)//4 + 1  + 3 = 29
+            # self.physRes.nR = specRes
+            self.physRes.nR = (3*(self.specRes.nN+1))//2+1 + 3*(self.specRes.nL+1)//4 +1 + 3
             nr = self.physRes.nR
             grid = np.sqrt((np.cos(np.pi*(np.arange(0,2*nr)+0.5)/(2*nr)) + 1.0)/2.0)
         
@@ -616,7 +619,7 @@ class SpectralState(BaseState):
             t_part = idct(modeT, type = 2)
             
         elif self.geometry == 'sphere':
-            #TODO: Leo
+            #TODO: Leo, Where do you get this???
             q_part = None
             s_part = None
             t_part = None
