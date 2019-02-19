@@ -541,8 +541,11 @@ class SpectralState(BaseState):
 
     
 
-    # the function takes care of the looping over modes
     def makeMeridionalSlice(self, p=0, modeRes = (120,120) ):
+        """
+        the function takes care of the looping over modes
+        TODO: Nico add comments and change syntax   
+        """
 
         if not (self.geometry == 'shell' or self.geometry == 'sphere'):
             raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
@@ -550,20 +553,23 @@ class SpectralState(BaseState):
         # generate indexer
         # this generate the index lenght also
         self.idx = self.idxlm()
+        # returns (l,m) from index 
         ridx = {v: k for k, v in self.idx.items()}
 
         if modeRes == None:
             modeRes=(self.specRes.L, self.specRes.M)
         # generate grid
+        # X, Y: meshgrid for plotting in cartesian coordinates
+        # r, theta: grid used for evaluation 
         X, Y, r, theta = self.makeMeridionalGrid()
         
-        # pad the fields
+        # pad the fields to apply 3/2 rule 
         dataT = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
         dataT[:,:self.specRes.N] = self.fields.velocity_tor
         dataP = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
         dataP[:,:self.specRes.N] = self.fields.velocity_pol
         
-        # prepare the output fields
+        # prepare the output fields in radial, theta, and phi 
         FR = np.zeros((len(r), len(theta)))
         FTheta = np.zeros_like(FR)
         FPhi = np.zeros_like(FR)
@@ -580,24 +586,37 @@ class SpectralState(BaseState):
             # statement to redute the number of modes considered
             if l> modeRes[0] or m> modeRes[1]:
                 continue
-            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                  :], r, theta, kron='meridional', phi0=p)
+
+            #Core function to evaluate (l,m) modes summing onto FieldOut 
+            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i, :], r, theta, kron='meridional', phi0=p)
 
         return X, Y, FieldOut
 
     def evaluate_mode(self, l, m, *args, **kwargs):
-
+        """
+        evaluate (l,m) mode and return FieldOut
+        input: 
+        spectral coefficients: dataT, dataP, 
+        physical grid: r, theta, phi0
+        kron: 'meridional' or 'equatorial'
+        outpu: FieldOut
+        e.g:
+        evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i, :], r, theta, kron='meridional', phi0=p)
+        """
         print(l, m)
         # raise exception if wrong geometry
         if not (self.geometry == 'shell' or self.geometry == 'sphere'):
             raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
 
         # prepare the input data
+        #Evaluated fields 
         Field_r = args[0][0]
         Field_theta = args[0][1]
         Field_phi = args[0][2]
+        #spectral coefficients
         modeT = args[1]
         modeP = args[2]
+        #grid points 
         r = args[3]
         theta = args[4]
         phi0 = kwargs['phi0']
@@ -606,33 +625,43 @@ class SpectralState(BaseState):
         factor = 1. if m==0 else 2.
         
         if self.geometry == 'shell':
-            # Leo: can we write this explicitly?            
+            # Leo: can we write this explicitly?
+            # q = l*(l+1) * Poloidal / r            
+            # idct: inverse discrete cosine transform
+            # type = 2: type of transform 
+            # q = Field_radial 
             # prepare the q_part
+            # idct = \sum c_n * T_n(xj)
             modeP_r = idct(modeP, type = 2)/r
             q_part = modeP_r * l*(l+1)
             
             # prepare the s_part
+            # s_part = orthogonal to Field_radial and Field_Toroidal
+            # s_part = (Poloidal)/r + d(Poloidal)/dr = 1/r d(Poloidal)/dr
             dP = np.zeros_like(modeP)
             d_temp = cheb.chebder(modeP)
             dP[:len(d_temp)] = d_temp
             s_part = modeP_r + idct(dP, type = 2)/self.a
             
             # prepare the t_part
+            # t_part = Field_Toroidal
             t_part = idct(modeT, type = 2)
             
         elif self.geometry == 'sphere':
             #TODO: Leo, Where do you get this???
-            q_part = None
-            s_part = None
+            q_part = None #same stuff 
+            s_part = None 
             t_part = None
         
         # depending on the kron type it changes how 2d data are formed
+        # Mapping from qst to r,theta, phi 
+        # phi0: azimuthal angle of meridional plane. It's also the phase shift of the flow with respect to the mantle frame, 
         if kwargs['kron'] == 'meridional':
-            eimp = np.exp(1j * -1* m * phi0) 
+            eimp = np.exp(1j * -1* m * phi0) #TODO: Nico check -1 or +1 
             idx_ = self.idx[l, m]
             Field_r += np.real(tools.kron(q_part, self.Plm[idx_, :]) *
                                eimp)
-            eimp *= factor
+            eimp *= factor #TODO: Nico, why do we have a factor only for theta and phi?
             Field_theta += np.real(tools.kron(s_part, self.dPlm[idx_, :]) * eimp)
             Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp)
             Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp)
@@ -672,9 +701,10 @@ class SpectralState(BaseState):
     # to compute the energy of a field
     def compute_energy(self, field_name='velocity'):
         # INPUT:
-        # field_name: string, specifies the field type (velocity, magnetic)
-        
+        # field_name: string, specifies the vector field type (velocity, magnetic) 
         # switch over different geometries
+        # potential: symmetric and antisymmetric
+
         if self.geometry == 'shell':
 
             # init the storage
@@ -682,9 +712,10 @@ class SpectralState(BaseState):
             pol_energy = 0
 
             # precompute the radial tranform parameters
+            # r = a*x + b
             a, b = .5, .5 * (1 + self.parameters.rratio) / (1 - self.parameters.rratio)
 
-            # compute volume
+            # compute volume for scaling 
             ro = 1/(1-self.parameters.rratio)
             ri = self.parameters.rratio/(1-self.parameters.rratio)
             vol = 4/3*np.pi*(ro**3-ri**3)
@@ -692,22 +723,28 @@ class SpectralState(BaseState):
             # generate idx indicer
             self.idx = self.idxlm()
 
-            # obtain the 2 fields
+            # obtain the 2 fields all modes 
             Tfield = getattr(self.fields, field_name + '_tor')
             Pfield = getattr(self.fields, field_name + '_pol')
 
-            # loop first over f
+            # loop first over modes
             for l in range(self.specRes.L):
 
                 for m in range(min(l+1, self.specRes.M) ):
 
-                    # compute factor
+                    # compute factor because we compute only m>=0
+                    # TODO: Nico 2 for m==0 and 1 for m>0?
                     factor = 2. if m==0 else 1.
 
-                    # obtain modes
+                    # obtain (l,m) modes
                     Tmode = Tfield[self.idx[l, m], :]
                     Pmode = Pfield[self.idx[l, m], :]
 
+                    #(\sqrt{l*(l+1)})^2: energy norm prefactor for Spherical Harmonics
+                    #ortho_tor(length, a, b, Field.real, Field.real) : computes the inner product (Field.real,Field.real)
+                    #t, q, s : energy
+                    # real and imag are done separately, 
+                    # it should be equivalent to compute inner product with complex conjugate 
                     tor_energy += factor * l*(l+1) *\
                     ortho_tor(len(Tmode), a, b, Tmode.real,
                               Tmode.real)
@@ -715,6 +752,7 @@ class SpectralState(BaseState):
                     ortho_tor(len(Tmode), a, b, Tmode.imag,
                               Tmode.imag)
 
+                    #(l*(l+1))^2: integral over r of 1/r \mathcal{L}^2 P 
                     pol_energy += factor * (l*(l+1))**2 *\
                     ortho_pol_q(len(Pmode), a, b, Pmode.real,
                                 Pmode.real)
@@ -735,8 +773,10 @@ class SpectralState(BaseState):
                     
 
     def compute_mode_product(self, spectral_state, m, field_name='velocity'):
-        
+        #TODO: Nico, add description 
         # switch over different geometries
+        # \int_V q m\dagger \cdot u dV 
+        # projection of velocity field onto a given mode with respect to a given mode
         if self.geometry == 'shell':
             
             # init the storage

@@ -23,6 +23,13 @@ class get_pybind_include(object):
 
 env = os.environ.copy() #takes env variables
 
+string1 =env.get('QUICC_DIR', None)
+
+if string1 == None: 
+    print('Installing native Python')
+else:
+    print('Installing pybind11 accelerator')
+
 sources =    ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp',
                     'src/Base/Precision.cpp',
                     'src/PolynomialTransforms/WorlandPolynomial.cpp',
