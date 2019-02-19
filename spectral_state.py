@@ -7,6 +7,7 @@ from numpy.polynomial import chebyshev as cheb
 import sys
 sys.path.append('/Users/leo/quicc-github/QuICC/Python/')
 from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
+import integrateWorland as wor 
 
 class SpectralState(BaseState):
     
@@ -161,7 +162,7 @@ class SpectralState(BaseState):
             # e.g: N=10, L=10, nR = 29; N=10, L=20, nR = 36
             # 3*(N+1)//2 + 1 + 3*(L+1)//4 + 1  + 3 = 29
             # self.physRes.nR = specRes
-            self.physRes.nR = (3*(self.specRes.nN+1))//2+1 + 3*(self.specRes.nL+1)//4 +1 + 3
+            self.physRes.nR = (3*(specRes.nN+1))//2+1 + 3*(specRes.nL+1)//4+1 + 3
             nr = self.physRes.nR
             grid = np.sqrt((np.cos(np.pi*(np.arange(0,2*nr)+0.5)/(2*nr)) + 1.0)/2.0)
         
@@ -188,7 +189,7 @@ class SpectralState(BaseState):
             y = self.make1DGrid('Legendre', self.specRes.L)
 
         elif self.geometry == 'sphere':
-            x = self.make1DGrid('Worland', self.specRes.N)
+            x = self.make1DGrid('Worland', self.specRes)
             y = self.make1DGrid('Legendre', self.specRes.L)
 
         elif self.geometry == 'cartesian':
@@ -222,7 +223,7 @@ class SpectralState(BaseState):
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'sphere':
-            x = self.make1DGrid('Worland', self.specRes.N)
+            x = self.make1DGrid('Worland', self.specRes)
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'cartesian':
@@ -605,6 +606,7 @@ class SpectralState(BaseState):
         factor = 1. if m==0 else 2.
         
         if self.geometry == 'shell':
+            # Leo: can we write this explicitly?            
             # prepare the q_part
             modeP_r = idct(modeP, type = 2)/r
             q_part = modeP_r * l*(l+1)
