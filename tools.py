@@ -1,9 +1,8 @@
 import numpy as np
 from numpy.polynomial import chebyshev as cheb
 import sys
-sys.path.append('/home/nicolol/workspace/QuICC/Scripts/Python/pybind11/')
-
-import QuICC as quicc_pybind
+#sys.path.append('/home/nicolol/workspace/QuICC/Scripts/Python/pybind11/')
+import quicc_bind as quicc_pybind
 
 
 def cheb_eval(nr, a, b, r):
