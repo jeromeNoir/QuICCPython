@@ -1,12 +1,12 @@
 from base_state import BaseState
-import tools
+#import tools #Leo: file missing 
 import h5py
 import numpy as np
 from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
 import sys
 sys.path.append('/Users/leo/quicc-github/QuICC/Python/')
-from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
+#from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor #Leo: file missing
 import integrateWorland as wor 
 
 class SpectralState(BaseState):
@@ -59,7 +59,7 @@ class SpectralState(BaseState):
                 
         if self.isEPM:
             for at in fin['PhysicalParameters'].keys():
-                setattr(self.parameters, at, fin['PhysicalParameters'][at].value)
+                setattr(self.parameters, at, fin['PhysicalParameters'][at][()])
 
         self.readResolution(fin)
         
@@ -77,9 +77,9 @@ class SpectralState(BaseState):
         if self.geometry == 'shell' or self.geometry == 'sphere':
 
             # read defined resolution
-            N = fin['/truncation/spectral/dim1D'].value + 1
-            L = fin['/truncation/spectral/dim2D'].value + 1
-            M = fin['/truncation/spectral/dim3D'].value + 1
+            N = fin['/truncation/spectral/dim1D'][()] + 1
+            L = fin['/truncation/spectral/dim2D'][()] + 1
+            M = fin['/truncation/spectral/dim3D'][()] + 1
             setattr(self.specRes, 'N', N)
             setattr(self.specRes, 'L', L)
             setattr(self.specRes, 'M', M)
@@ -88,9 +88,9 @@ class SpectralState(BaseState):
             setattr(self, 'ordering', fin.attrs['type'])
         elif self.geometry == 'cartesian':
 
-            N = fin['/truncation/spectral/dim1D'].value + 1
-            kx = fin['/truncation/spectral/dim2D'].value + 1
-            ky = fin['/truncation/spectral/dim3D'].value + 1
+            N = fin['/truncation/spectral/dim1D'][()] + 1
+            kx = fin['/truncation/spectral/dim2D'][()] + 1
+            ky = fin['/truncation/spectral/dim3D'][()] + 1
             setattr(self.specRes, 'N', N)
             setattr(self.specRes, 'ky', ky)
             setattr(self.specRes, 'kx', kx)
@@ -162,7 +162,7 @@ class SpectralState(BaseState):
             # e.g: N=10, L=10, nR = 29; N=10, L=20, nR = 36
             # 3*(N+1)//2 + 1 + 3*(L+1)//4 + 1  + 3 = 29
             # self.physRes.nR = specRes
-            self.physRes.nR = (3*(specRes.nN+1))//2+1 + 3*(specRes.nL+1)//4+1 + 3
+            self.physRes.nR = (3*(specRes.N+1))//2+1 + 3*(specRes.L+1)//4+1 + 3
             nr = self.physRes.nR
             grid = np.sqrt((np.cos(np.pi*(np.arange(0,2*nr)+0.5)/(2*nr)) + 1.0)/2.0)
         
@@ -344,7 +344,7 @@ class SpectralState(BaseState):
             spectral_coeff = getattr(my_state.fields,field)
             [nx , ny , nz ] = spectral_coeff.shape
             x = np.array([level])
-            PI = tools.cheb_eval(nz, 0.5, 0.5, x);
+            #PI = tools.cheb_eval(nz, 0.5, 0.5, x);
             
             padfield = np.zeros((int((nx+1)*3/2), int((ny+1)*3/2), nz  ), dtype=complex)
             padfield[:(ny+1), :ny, :] = spectral_coeff[:(ny+1),:,:]
@@ -376,7 +376,7 @@ class SpectralState(BaseState):
             [nx , ny , nz ] = spectral_coeff.shape
 
             if direction == 'x':
-                PI = tools.fourier_eval_shift(nx, level);
+                #PI = tools.fourier_eval_shift(nx, level);
 
                 test = np.zeros((ny,nz), dtype=complex)
                 for i in range(0,nz):
@@ -396,7 +396,7 @@ class SpectralState(BaseState):
                     real_field2[:,i] = np.fft.irfft(real_field[:,i])*((nx+1)*3/2)*(2)
 
             elif direction == 'y':
-                PI = tools.fourier_eval(nx, level);
+                #PI = tools.fourier_eval(nx, level);
 
                 spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
 
@@ -448,8 +448,8 @@ class SpectralState(BaseState):
             [nx2 , ny2 , nz2 ] =total.shape
 
             Proj_cheb = SpectralState.Cheb_eval(nz2, 0.5, 0.5, Zvalue)
-            Proj_fourier_x = tools.fourier_eval(nx2, Xvalue)
-            Proj_fourier_y = tools.fourier_eval_shift(ny2, Yvalue)
+            #Proj_fourier_x = tools.fourier_eval(nx2, Xvalue)
+            #Proj_fourier_y = tools.fourier_eval_shift(ny2, Yvalue)
 
             value1 = np.dot(total, Proj_cheb.T)
             value2 = np.dot(value1, Proj_fourier_y.T)
@@ -506,6 +506,7 @@ class SpectralState(BaseState):
             
             # compute the assoc legendre
             temp = tools.plm(self.specRes.L-1, m, x)
+            #temp = wor.plm(self.specRes.L-1, m, x) #Leo: this implementation doesn't work 
 
             # assign the Plm to storage
             for l in range(m, self.specRes.L):
@@ -649,9 +650,19 @@ class SpectralState(BaseState):
             
         elif self.geometry == 'sphere':
             #TODO: Leo, Where do you get this???
-            q_part = None #same stuff 
-            s_part = None 
-            t_part = None
+            print('modeP:', modeP.shape)
+            print('modeT:', modeT.shape)
+            print('r:',r.shape)
+            print('specRes:',self.specRes)
+            modeP_r = np.zeros_like(modeP)
+            dP = np.zeros_like(modeP)
+            for n in range(self.specRes.N):
+                modeP_r=modeP_r+modeP*W(n, l, r)/r
+                dP = modeP*diffW(n, l, r_local)
+                t_part = t_part + modeT*W(n,l,r)
+
+            q_part =  modeP_r*l*(l+1)#same stuff
+            s_part = modeP_r + dP 
         
         # depending on the kron type it changes how 2d data are formed
         # Mapping from qst to r,theta, phi 
@@ -659,35 +670,35 @@ class SpectralState(BaseState):
         if kwargs['kron'] == 'meridional':
             eimp = np.exp(1j * -1* m * phi0) #TODO: Nico check -1 or +1 
             idx_ = self.idx[l, m]
-            Field_r += np.real(tools.kron(q_part, self.Plm[idx_, :]) *
-                               eimp)
+            #Field_r += np.real(tools.kron(q_part, self.Plm[idx_, :]) *
+            #                   eimp)
             eimp *= factor #TODO: Nico, why do we have a factor only for theta and phi?
-            Field_theta += np.real(tools.kron(s_part, self.dPlm[idx_, :]) * eimp)
-            Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp)
-            Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp)
-            Field_phi -= np.real(tools.kron(t_part, self.dPlm[idx_, :]) * eimp)
+            #Field_theta += np.real(tools.kron(s_part, self.dPlm[idx_, :]) * eimp)
+            #Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp)
+            #Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp)
+            #Field_phi -= np.real(tools.kron(t_part, self.dPlm[idx_, :]) * eimp)
 
         elif kwargs['kron'] == 'equatorial':
             eimp = np.exp(1j * -1* m * (phi0 + phi))
             idx_ = self.idx[l, m]
-            Field_r += np.real(tools.kron(q_part, eimp) *
-                               self.Plm[idx_, :][0])
+            #Field_r += np.real(tools.kron(q_part, eimp) *
+            #                   self.Plm[idx_, :][0])
             eimp *=  factor
-            Field_theta += np.real(tools.kron(s_part, eimp) * self.dPlm[idx_, :][0])
-            Field_theta += np.real(tools.kron(t_part, eimp) * self.Plm_sin[idx_, :][0])
-            Field_phi += np.real(tools.kron(s_part, eimp) * self.Plm_sin[idx_, :][0])
-            Field_phi -= np.real(tools.kron(t_part, eimp) * self.dPlm[idx_, :][0])
+            #Field_theta += np.real(tools.kron(s_part, eimp) * self.dPlm[idx_, :][0])
+            #Field_theta += np.real(tools.kron(t_part, eimp) * self.Plm_sin[idx_, :][0])
+            #Field_phi += np.real(tools.kron(s_part, eimp) * self.Plm_sin[idx_, :][0])
+            #Field_phi -= np.real(tools.kron(t_part, eimp) * self.dPlm[idx_, :][0])
             
         elif kwargs['kron'] == 'isogrid':
             eimp = np.exp(1j * -1* m * (phi0 + phi)) 
             idx_ = self.idx[l, m]
-            Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) *
-                               q_part)
-            eimp *= factor
-            Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part)
-            Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp) * t_part)
-            Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp) * s_part)
-            Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part)
+            #Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) *
+            #                   q_part)
+            #eimp *= factor
+            #Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part)
+            #Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp) * t_part)
+            #Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp) * s_part)
+            #Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part)
             
         else:
             raise ValueError('Kron type not understood: '+kwargs['kron'])
