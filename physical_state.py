@@ -1,4 +1,5 @@
-from BaseState import BaseState
+import numpy as np
+from base_state import BaseState
 
 class PhysicalState(BaseState):
     
@@ -46,3 +47,64 @@ class PhysicalState(BaseState):
 
                     # set attributes
                     setattr(self.fields, subg, field)
+
+
+    # define function for equatorial plane visualization from the visState0000.hdf5 file
+    def makeMeridionalSlice(self, fieldname = 'velocity'):
+
+        # some parameters just in case
+        eta = self.parameters.rratio
+        ri = eta/(1-eta)
+        ro = 1/(1-eta)
+        
+        # select the 0 meridional plane value for 
+        idx_phi0 = self.grid_phi==0
+        
+        #idx_r = (fopen['mesh/grid_r']>ri+delta) & (fopen['mesh/grid_r']<ro-delta)
+        #idx_r = fopen['mesh/grid_r'].value>0
+        
+        # find the grid in radial and meridional direction
+        r = self.grid_r #.value[idx_r]
+        theta =  self.grid_theta
+        
+        rr, ttheta = np.meshgrid(self.grid_r, self.grid_theta)
+        X = rr*np.sin(ttheta)
+        Y = rr*np.cos(ttheta)
+        
+        Field1 = np.mean(getattr(self.fields, fieldname+'_r')[:, :, idx_phi0], axis=2)
+        Field2 = np.mean(getattr(self.fields, fieldname+'_theta')[:, :, idx_phi0], axis=2)
+        Field3 = np.mean(getattr(self.fields, fieldname+'_phi')[:, :, idx_phi0], axis=2)
+        
+        return X, Y, (Field1, Field2, Field3)
+
+
+    
+    # define function for equatorial plane visualization from the visState0000.hdf5 file
+    def makeEquatorialSlice(self, fieldname = 'velocity'):
+                        
+        # select the r grid in the bulk of the flow
+        #idx_r = (fopen['mesh/grid_r']>ri+delta) & (fopen['mesh/grid_r']<ro-delta)
+        #idx_r = (fopen['mesh/grid_r'].value>0.)
+        
+        # select the 0 meridional plane value for
+        theta_grid = self.grid_theta
+        neq = int(len(theta_grid)/2)
+        idx_theta = (theta_grid == theta_grid[neq-1]) | (theta_grid == theta_grid[neq])
+        
+        # find the grid in radial and meridional direction
+        #r = fopen['mesh/grid_r'].value[idx_r]
+        r = self.grid_r
+        phi = self.grid_phi
+        
+        rr, pphi = np.meshgrid(r, phi)
+        # compute the values for x and y
+        X = np.cos(pphi)*rr
+        Y = np.sin(pphi)*rr
+        
+        Field1 = np.mean(getattr(self.fields, fieldname+'_r')[:,idx_theta,:], axis=1)
+        Field2 = np.mean(getattr(self.fields, fieldname+'_theta')[:,idx_theta,:], axis=1)
+        Field3 = np.mean(getattr(self.fields, fieldname+'_phi')[:,idx_theta,:], axis=1)
+
+        return X, Y, (Field1, Field2, Field3)
+        
+        
