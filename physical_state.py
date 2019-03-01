@@ -89,8 +89,12 @@ class PhysicalState(BaseState):
         # select the 0 meridional plane value for
         theta_grid = self.grid_theta
         neq = int(len(theta_grid)/2)
-        idx_theta = (theta_grid == theta_grid[neq-1]) | (theta_grid == theta_grid[neq])
-        
+        if len(theta_grid) % 2 == 0:
+            idx_theta = (theta_grid == theta_grid[neq-1]) | (theta_grid == theta_grid[neq])
+            print(theta_grid[neq-1]-np.pi/2, theta_grid[neq]-np.pi/2)
+        else:
+            idx_theta = (theta_grid == theta_grid[neq])
+            
         # find the grid in radial and meridional direction
         #r = fopen['mesh/grid_r'].value[idx_r]
         r = self.grid_r
