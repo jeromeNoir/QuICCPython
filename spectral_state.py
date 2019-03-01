@@ -517,11 +517,11 @@ class SpectralState(BaseState):
         for i in range(self.nModes):
             l, m = ridx[i]
             self.dPlm[i, :] = -.5 * (((l+m)*(l-m+1))**0.5 * self.plm(l,m-1) -
-                                     ((l-m)*(l+m+1))**.5 * self.plm(l, m+1) )
+                                     ((l-m)*(l+m+1))**.5 * self.plm(l, m+1, x) )
 
             if m!=0:
                 self.Plm_sin[i, :] = -.5/m * (((l-m)*(l-m-1))**.5 *
-                                              self.plm(l-1, m+1) + ((l+m)*(l+m-1))**.5 *
+                                              self.plm(l-1, m+1, x) + ((l+m)*(l+m-1))**.5 *
                                             self.plm(l-1, m-1)) * ((2*l+1)/(2*l-1))**.5
             else:
                 self.Plm_sin[i, :] = self.plm(l, m)/(1-x**2)**.5
@@ -529,7 +529,7 @@ class SpectralState(BaseState):
         pass
 
     # Lookup function to help the implementation of dPlm and Plm_sin 
-    def plm(self, l, m):
+    def plm(self, l, m, x = None):
 
         if l < m or m < 0 or l < 0:
             return np.zeros_like(self.Plm[0,:])
@@ -538,7 +538,8 @@ class SpectralState(BaseState):
             #temp = np.sqrt((2.0*l+1)/(l-m)) * np.sqrt((2.0*l-1.0)/(l+m))*self.xth*self.plm(l-1,m)-\
                 #np.sqrt((2.0*l+1)/(2.0*l-3.0))*np.sqrt((l+m-1.0)/(l+m))*np.sqrt((l-m-1.0)/(l-m))\
                 #* self.plm(l-2, m)
-            return temp
+            temp = tools.plm(self.specRes.L-1, m, x)
+            return temp[:, l - m]
         else:
             return self.Plm[self.idx[l, m], :]
         
@@ -682,37 +683,40 @@ class SpectralState(BaseState):
         
         # depending on the kron type it changes how 2d data are formed
         if kwargs['kron'] == 'meridional':
-            eimp = np.exp(1j *  m * phi0) 
+            eimp = np.exp(1j *  m * phi0)
+            
             idx_ = self.idx[l, m]
             Field_r += np.real(tools.kron(q_part, self.Plm[idx_, :]) *
-                               eimp)
-            eimp *= factor
-            Field_theta += np.real(tools.kron(s_part, self.dPlm[idx_, :]) * eimp)
-            Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp * 1j * m)
-            Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp * 1j * m)
-            Field_phi -= np.real(tools.kron(t_part, self.dPlm[idx_, :]) * eimp)
+                               eimp) * factor
+            
+            Field_theta += np.real(tools.kron(s_part, self.dPlm[idx_, :]) * eimp) * 2
+            Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * factor
+            Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * factor 
+            Field_phi -= np.real(tools.kron(t_part, self.dPlm[idx_, :]) * eimp) * 2
 
         elif kwargs['kron'] == 'equatorial':
             eimp = np.exp(1j *  m * (phi0 + phi))
+            
             idx_ = self.idx[l, m]
             Field_r += np.real(tools.kron(q_part, eimp) *
-                               self.Plm[idx_, :][0])
-            eimp *=  factor
-            Field_theta += np.real(tools.kron(s_part, eimp)) * self.dPlm[idx_, :][0]
-            Field_theta += np.real(tools.kron(t_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0]
-            Field_phi += np.real(tools.kron(s_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0]
-            Field_phi -= np.real(tools.kron(t_part, eimp)) * self.dPlm[idx_, :][0]
+                               self.Plm[idx_, :][0]) * factor
+            
+            Field_theta += np.real(tools.kron(s_part, eimp)) * self.dPlm[idx_, :][0] * 2
+            Field_theta += np.real(tools.kron(t_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0] * factor
+            Field_phi += np.real(tools.kron(s_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0] * factor
+            Field_phi -= np.real(tools.kron(t_part, eimp)) * self.dPlm[idx_, :][0] * 2
             
         elif kwargs['kron'] == 'isogrid':
-            eimp = np.exp(1j *  m * (phi0 + phi)) 
+            eimp = np.exp(1j *  m * (phi0 + phi))
+            
             idx_ = self.idx[l, m]
             Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) *
-                               q_part)
-            eimp *= factor
-            Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part)
-            Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * t_part)
-            Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * s_part)
-            Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part)
+                               q_part) * factor
+            
+            Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part) * 2
+            Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * t_part) * factor
+            Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * s_part) * factor
+            Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part) * 2
             
         else:
             raise ValueError('Kron type not understood: '+kwargs['kron'])
