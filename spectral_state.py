@@ -25,7 +25,6 @@ class SpectralState(BaseState):
             for subg in fin[group]:
 
                 # we check to import fields which are at least 2-dimensional tensors
-                print(fin[group][subg])
                 field = fin[group][subg]
                 
                 if isinstance(field, h5py.Group):
@@ -701,8 +700,7 @@ class SpectralState(BaseState):
             
         # initialize the spherical harmonics
         self.makeSphericalHarmonics(theta)
-
-        print(r, x, self.a)
+        
         for i in range(self.nModes):
             
             # get the l and m of the index
@@ -725,7 +723,7 @@ class SpectralState(BaseState):
             field2.append(f)
                              
         FieldOut = field2
-        return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+        return {'theta': TTheta, 'phi': PPhi, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
 
     def evaluate_mode(self, l, m, *args, **kwargs):
 
