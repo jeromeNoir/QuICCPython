@@ -4,8 +4,9 @@ import h5py
 import numpy as np
 from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
-import sys
-sys.path.append('/home/nicolol/workspace/QuICC/Python/')
+import sys, os
+env = os.environ.copy()
+sys.path.append(env['HOME']+'/workspace/QuICC/Python/')
 from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
 
 class SpectralState(BaseState):
@@ -594,7 +595,7 @@ class SpectralState(BaseState):
             self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
                                                                   :], r, theta, None, kron='meridional', phi0=p)
 
-        return X, Y, FieldOut
+        return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
 
 
     # the function takes care of the looping over modes
@@ -650,8 +651,9 @@ class SpectralState(BaseState):
             f = f * len(f[0,:])
             f = np.hstack([f,np.column_stack(f[:,0]).T])
             field2.append(f)
-        
-        return X, Y, field2
+        FieldOut = field2
+        #return X, Y, field2
+        return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
 
     # the function takes care of the looping over modes
     def makeIsoradiusSlice(self, r=None, p=0, modeRes = (120,120) ):
@@ -722,7 +724,8 @@ class SpectralState(BaseState):
             f = np.hstack([f,np.column_stack(f[:,0]).T])
             field2.append(f)
                              
-        return TTheta, PPhi, field2
+        FieldOut = field2
+        return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
 
     def evaluate_mode(self, l, m, *args, **kwargs):
 
