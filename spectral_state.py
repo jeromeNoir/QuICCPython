@@ -367,7 +367,7 @@ class SpectralState(BaseState):
             """
 
         if geometry == 'shell' or geometry == 'sphere':
-            print('Please use the makeMeridionalSlice function for a sphere or shell geometry')
+            raise NotImplementedError('Please use the makeMeridionalSlice function for a sphere or shell geometry')
             pass
         
         elif geometry == 'cartesian':
@@ -430,15 +430,55 @@ class SpectralState(BaseState):
 
         return real_field2
     
-    def PointValue(file, geometry, field, Xvalue, Yvalue, Zvalue):
+    def PointValue(self, field='velocity', Xvalue, Yvalue, Zvalue):
 
-        if geometry == 'shell' or geometry == 'sphere':
-            print('This Needs work')
-            pass
+        if self.geometry == 'shell' or self.geometry == 'sphere':
 
-        elif geometry == 'cartesian':
-            my_state = SpectralState(file,geometry)
-            spectral_coeff = getattr(my_state.fields,field)
+            # assume that the argument are r=x theta=y and phi=z
+            assert(len(Xvalue) == len(Yvalue))
+            assert(len(Xvalue) == len(Zvalue))
+            r = Xvalue
+            theta = Yvalue
+            phi = Zvalue
+            
+            # generate indexer
+            # this generate the index lenght also
+            self.idx = self.idxlm()
+            ridx = {v: k for k, v in self.idx.items()}
+            
+            # generate grid
+            self.makeMeridionalGrid()
+            
+            # pad the fields
+            dataT = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
+            dataT[:,:self.specRes.N] = getattr(self.fields, field+'_tor')
+            dataP = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
+            dataP[:,:self.specRes.N] = getattr(self.fields, field+'_pol')
+            
+            # prepare the output fields
+            FR = np.zeros_like(r)
+            FTheta = np.zeros_like(FR)
+            FPhi = np.zeros_like(FR)
+            FieldOut = [FR, FTheta, FPhi]
+            
+            # initialize the spherical harmonics
+            self.makeSphericalHarmonics(theta)
+            x = (r - self.b)/self.a
+            for i in range(self.nModes):
+                
+                # get the l and m of the index
+                l, m = ridx[i]
+                
+                # statement to redute the number of modes considered
+            
+                self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
+                                                                      :], r, theta, phi, kron='points', x=x)
+                
+            return_value =  {'r': r, 'theta': theta, 'phi': phi, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+                        
+        elif self.geometry == 'cartesian':
+            
+            spectral_coeff = getattr(self.fields,field)
             [nx , ny , nz ] = spectral_coeff.shape
 
             spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
@@ -455,7 +495,9 @@ class SpectralState(BaseState):
             value2 = np.dot(value1, Proj_fourier_y.T)
             value3 = np.dot(value2.T,Proj_fourier_x.T )
 
-        return float(value3.real)
+            return_value = float(value3.real)
+            
+        return return_value
 
 
     # function creating a dictionary to index data for SLFl, WLFl,
@@ -463,7 +505,7 @@ class SpectralState(BaseState):
     def idxlm(self):
 
         if self.geometry != 'shell' and self.geometry != 'sphere':
-            raise  NotImplementedError('The idxlm dictionary is not implemented for the current geometry')
+            raise  NotImplementedError('The idxlm dictionary is not implemented for the current geometry', self.geometry)
         
         # initialize an empty dictionary
         idxlm = {}
@@ -746,7 +788,7 @@ class SpectralState(BaseState):
         # define factor
         factor = 1. if m==0 else 2.
 
-        if kwargs['kron'] == 'isogrid':
+        if kwargs['kron'] == 'isogrid' or kwargs['kron'] == 'points':
             x = kwargs['x']
             if self.geometry == 'shell':
                 # assume that the mode is weighted like Philippe sets it
@@ -804,6 +846,16 @@ class SpectralState(BaseState):
             Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor
             Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor 
             Field_phi -= np.real(tools.kron(t_part, self.dPlm[idx_, :]) * eimp) * 2
+
+        elif kwargs['kron'] == 'points':
+            eimp = np.exp(1j *  m * phi)
+            
+            idx_ = self.idx[l, m]
+            Field_r += np.real(q_part * self.Plm[idx_, :] * eimp) * factor
+            Field_theta += np.real(s_part * self.dPlm[idx_, :] * eimp) * 2
+            Field_theta += np.real(t_part * self.Plm_sin[idx_, :] * eimp * 1j * m) * 2#factor
+            Field_phi += np.real(s_part * self.Plm_sin[idx_, :] * eimp * 1j * m) * 2#factor 
+            Field_phi -= np.real(t_part * self.dPlm[idx_, :] * eimp) * 2
 
         elif kwargs['kron'] == 'equatorial':
             """
