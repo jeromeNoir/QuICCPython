@@ -91,8 +91,8 @@ class SpectralState(BaseState):
             kx = fin['/truncation/spectral/dim2D'].value + 1
             ky = fin['/truncation/spectral/dim3D'].value + 1
             setattr(self.specRes, 'N', N)
-            setattr(self.specRes, 'ky', ky)
             setattr(self.specRes, 'kx', kx)
+            setattr(self.specRes, 'ky', ky)
 
         else:
 
