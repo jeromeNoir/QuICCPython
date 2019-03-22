@@ -928,10 +928,4 @@ class SpectralState(BaseState):
             pol_product /= (2*vol)
         return tor_product + pol_product
             
-
-                    
-                    
-                    
-                    
-                
-                    
+ 
