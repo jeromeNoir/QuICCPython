@@ -33,10 +33,11 @@ def fourier_eval(nr, r):
     v = np.zeros((nr,1),dtype=complex)
     nr2 = int(nr/2)
 
-    for k in range(-nr2,nr2+1):
-        v[k+nr2] = np.exp(k*xx*1j)
-        
-    v[nr2] = 0.5;
+    for k in range(1,nr2+1):
+        v[k] = np.exp(k*xx*1j)
+    for k in range(1,nr2+1):
+        v[nr-k] = np.exp(-(k)*xx*1j)
+    v[0] = 0.5;
 
 
     return np.mat(v.transpose())
