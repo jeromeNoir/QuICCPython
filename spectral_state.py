@@ -1,5 +1,5 @@
 from base_state import BaseState
-import tools #Leo: file missing 
+import tools
 import h5py
 import numpy as np
 from scipy.fftpack import dct, idct
@@ -66,7 +66,7 @@ class SpectralState(BaseState):
     def readResolution(self, fin):
         """
         This function sets the geometry specific attributes for the
-        spectral resoltion
+        spectral resolution
         INPUT:
         fin: h5py object; the  current in reading hdf5 buffer
         OUTPUT:
@@ -233,7 +233,9 @@ class SpectralState(BaseState):
         else:
             raise RuntimeError('Meridional grid for unknown geometry')
         # make the 2D grid via Kronecker product
-        X, Y = np.meshgrid(x, y)
+        R, Phi = np.meshgrid(x, y)
+        X = R*np.cos(Phi)
+        Y = R*np.sin(Phi)
 
         return X, Y, x, y
 
@@ -490,10 +492,11 @@ class SpectralState(BaseState):
 
         # raise error in case of wrong geometry
         if not (self.geometry == 'shell' or self.geometry == 'sphere'):
-            raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
+            raise NotImplementedError('makeSphericalHarmonics is not implemented for the geometry: '+self.geometry)
 
         # change the theta into x
         x = np.cos(theta)
+        self.xth = x
 
         # initialize storage to 0
         self.Plm = np.zeros((self.nModes, len(x)))
@@ -534,13 +537,16 @@ class SpectralState(BaseState):
     def plm(self, l, m):
 
         if l < m or m < 0 or l < 0:
-            return np.zeros(self.physRes.nTh)
+            return np.zeros_like(self.Plm[0,:])
+        elif m > self.specRes.M - 1:
+            return np.zeros_like(self.Plm[0, :])
+            #temp = np.sqrt((2.0*l+1)/(l-m)) * np.sqrt((2.0*l-1.0)/(l+m))*self.xth*self.plm(l-1,m)-\
+                #np.sqrt((2.0*l+1)/(2.0*l-3.0))*np.sqrt((l+m-1.0)/(l+m))*np.sqrt((l-m-1.0)/(l-m))\
+                #* self.plm(l-2, m)
+            return temp
         else:
             return self.Plm[self.idx[l, m], :]
         
-
-
-    
 
     def makeMeridionalSlice(self, p=0, modeRes = (120,120) ):
         """
@@ -557,8 +563,11 @@ class SpectralState(BaseState):
         # returns (l,m) from index 
         ridx = {v: k for k, v in self.idx.items()}
 
+        """
         if modeRes == None:
             modeRes=(self.specRes.L, self.specRes.M)
+        """
+        
         # generate grid
         # X, Y: meshgrid for plotting in cartesian coordinates
         # r, theta: grid used for evaluation 
@@ -585,12 +594,58 @@ class SpectralState(BaseState):
             l, m = ridx[i]
 
             # statement to redute the number of modes considered
+            #if l> modeRes[0] or m> modeRes[1]:
+            #continue
+            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
+                                                                  :], r, theta, None, kron='meridional', phi0=p)
+
+        return X, Y, FieldOut
+
+
+    # the function takes care of the looping over modes
+    def makeEquatorialSlice(self, p=0, modeRes = (120,120) ):
+
+        if not (self.geometry == 'shell' or self.geometry == 'sphere'):
+            raise NotImplementedError('makeEquatorialSlice is not implemented for the geometry: '+self.geometry)
+
+        # generate indexer
+        # this generate the index lenght also
+        self.idx = self.idxlm()
+        ridx = {v: k for k, v in self.idx.items()}
+
+        if modeRes == None:
+            modeRes=(self.specRes.L, self.specRes.M)
+        # generate grid
+        X, Y, r, phi = self.makeEquatorialGrid()
+        
+        # pad the fields
+        dataT = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
+        dataT[:,:self.specRes.N] = self.fields.velocity_tor
+        dataP = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
+        dataP[:,:self.specRes.N] = self.fields.velocity_pol
+        
+        # prepare the output fields
+        FR = np.zeros((len(r), len(phi)))
+        FTheta = np.zeros_like(FR)
+        FPhi = np.zeros_like(FR)
+        FieldOut = [FR, FTheta, FPhi]
+                
+        # initialize the spherical harmonics
+        # only for the equatorial values
+        self.makeSphericalHarmonics(np.array([np.pi/2]))
+
+        for i in range(self.nModes):
+            
+            # get the l and m of the index
+            l, m = ridx[i]
+
+            # statement to redute the number of modes considered
             if l> modeRes[0] or m> modeRes[1]:
                 continue
 
             #Core function to evaluate (l,m) modes summing onto FieldOut 
-            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i, :], r, theta, kron='meridional', phi0=p)
-
+            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
+                                                                  :], r, None, phi, kron='equatorial', phi0=p)
         return X, Y, FieldOut
 
     def evaluate_mode(self, l, m, *args, **kwargs):
@@ -620,7 +675,9 @@ class SpectralState(BaseState):
         #grid points 
         r = args[3]
         theta = args[4]
+        phi = args[5]
         phi0 = kwargs['phi0']
+
         
         # define factor
         factor = 1. if m==0 else 2.
@@ -670,36 +727,36 @@ class SpectralState(BaseState):
         # Mapping from qst to r,theta, phi 
         # phi0: azimuthal angle of meridional plane. It's also the phase shift of the flow with respect to the mantle frame, 
         if kwargs['kron'] == 'meridional':
-            eimp = np.exp(1j * -1* m * phi0) #TODO: Nico check -1 or +1 
+            eimp = np.exp(1j *  m * phi0) 
             idx_ = self.idx[l, m]
             Field_r += np.real(tools.kron(q_part, self.Plm[idx_, :]) *
                                eimp)
             eimp *= factor #TODO: Nico, why do we have a factor only for theta and phi?
             Field_theta += np.real(tools.kron(s_part, self.dPlm[idx_, :]) * eimp)
-            Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp)
-            Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp)
+            Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp * 1j * m)
+            Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp * 1j * m)
             Field_phi -= np.real(tools.kron(t_part, self.dPlm[idx_, :]) * eimp)
 
         elif kwargs['kron'] == 'equatorial':
-            eimp = np.exp(1j * -1* m * (phi0 + phi))
+            eimp = np.exp(1j *  m * (phi0 + phi))
             idx_ = self.idx[l, m]
             Field_r += np.real(tools.kron(q_part, eimp) *
                                self.Plm[idx_, :][0])
             eimp *=  factor
-            Field_theta += np.real(tools.kron(s_part, eimp) * self.dPlm[idx_, :][0])
-            Field_theta += np.real(tools.kron(t_part, eimp) * self.Plm_sin[idx_, :][0])
-            Field_phi += np.real(tools.kron(s_part, eimp) * self.Plm_sin[idx_, :][0])
-            Field_phi -= np.real(tools.kron(t_part, eimp) * self.dPlm[idx_, :][0])
+            Field_theta += np.real(tools.kron(s_part, eimp)) * self.dPlm[idx_, :][0]
+            Field_theta += np.real(tools.kron(t_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0]
+            Field_phi += np.real(tools.kron(s_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0]
+            Field_phi -= np.real(tools.kron(t_part, eimp)) * self.dPlm[idx_, :][0]
             
         elif kwargs['kron'] == 'isogrid':
-            eimp = np.exp(1j * -1* m * (phi0 + phi)) 
+            eimp = np.exp(1j *  m * (phi0 + phi)) 
             idx_ = self.idx[l, m]
             Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) *
                                q_part)
             eimp *= factor
             Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part)
-            Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp) * t_part)
-            Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp) * s_part)
+            Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * t_part)
+            Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * s_part)
             Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part)
             
         else:

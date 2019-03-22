@@ -14,6 +14,7 @@ void wnl( Eigen::Ref<QuICC::Matrix> op, int l, QuICC::Array igrid){
     QuICC::Matrix ipoly(op);
     QuICC::Polynomial::WorlandPolynomial::Wnl(mOp, ipoly, l, igrid);
     op = mOp;
+
 }
 
 //diff worland
