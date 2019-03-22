@@ -331,7 +331,7 @@ class SpectralState(BaseState):
         file 
         geometry
         field: string, descriptor for the spectral field wanted e.g. /velocity/velocityz
-        level: double, \in [0,1] to denote the level you want in Z
+        level: double, \in [-1,1] to denote the level you want in Z
         OUTPUT:
         real_field: np.matrix, representing the real data of the field
         """
@@ -344,12 +344,17 @@ class SpectralState(BaseState):
             spectral_coeff = getattr(my_state.fields,field)
             [nx , ny , nz ] = spectral_coeff.shape
             x = np.array([level])
-            PI = tools.cheb_eval(nz, 0.5, 0.5, x);
+            PI = tools.cheb_eval(nz, 1.0, 0, x);
             
+            spectral_coeff[:,0,:] = 2* spectral_coeff[:,0,:]
             padfield = np.zeros((int((nx+1)*3/2), int((ny+1)*3/2), nz  ), dtype=complex)
-            padfield[:(ny+1), :ny, :] = spectral_coeff[:(ny+1),:,:]
-            padfield[-(ny-1):, :ny, :] = spectral_coeff[-(ny-1):, :, :]
-            real_field = np.fft.irfft2(np.dot(padfield, PI.T))*((nx+1)*3/2)*((ny+1)*3)
+            
+            padfield[:(int((nx+1)/2)+1), :ny, :] = spectral_coeff[:(int((nx+1)/2)+1),:,:]
+            padfield[-(int((nx)/2)):, :ny, :] = spectral_coeff[-(int((nx)/2)):, :, :]
+            real_field = np.fft.irfft2(np.dot(padfield, PI.T))
+            
+            [nx2 , ny2  ] = real_field.shape
+            real_field = real_field*nx2*ny2
 
         else:
             raise RuntimeError('Unknown geometry')
@@ -360,10 +365,11 @@ class SpectralState(BaseState):
         """
             INPUT:
             geometry
-        field
+            field
             direction = either 'x' or 'y'
-            level = should be a value (0, 2pi) you want in that direction
+            level = should be a value (0, 2pi) you want in the specified direction
             OUTPUT:
+            2D array of the slice
             """
 
         if geometry == 'shell' or geometry == 'sphere':
@@ -376,14 +382,17 @@ class SpectralState(BaseState):
             [nx , ny , nz ] = spectral_coeff.shape
 
             if direction == 'x':
-                PI = tools.fourier_eval_shift(nx, level);
+                PI = tools.fourier_eval(nx, level);
 
                 test = np.zeros((ny,nz), dtype=complex)
+                
+                # This is needed to get the right scalings - probably an artifact of the c++ fftw3 versus np.fft.irfft2
+                spectral_coeff[:,0,:] = 2*spectral_coeff[:,0,:]
+                
                 for i in range(0,nz):
                     test[:,i] = np.ndarray.flatten(np.dot(PI,spectral_coeff[:,:,i]))
 
                 padfield = np.zeros( (int((ny+1)*3/2), int(nz*3/2)  ), dtype=complex)
-                padfield[ :ny, :nz] = test[:,:]
                 padfield[ :ny, :nz] = test[:,:]
 
                 real_field = np.zeros((int((ny+1)*3/2), int(nz*3/2)),  dtype=complex)
@@ -393,15 +402,20 @@ class SpectralState(BaseState):
                     real_field[i,:] = idct(padfield[i,:])
 
                 for i in range(0,int(nz*3/2)):
-                    real_field2[:,i] = np.fft.irfft(real_field[:,i])*((nx+1)*3/2)*(2)
-
+                    real_field2[:,i] = np.fft.irfft(real_field[:,i])
+                    
+                [ny2 , nz2] = real_field2.shape
+                
+                real_field2 = real_field2*ny2
+                
             elif direction == 'y':
-                PI = tools.fourier_eval(nx, level);
-
+                PI = tools.fourier_eval(2*ny-1, level);
+                spectral_coeff[:,0,:] = 2* spectral_coeff[:,0,:]
                 spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
 
                 total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
-                total[:,:(ny-1),:] = np.fliplr(spectral_coeff_cc[:,:(ny-1),:])
+                for i in range(0,ny-1):
+                    total[:,ny-1-i,:] = spectral_coeff_cc[:,i+1,:]
                 total[:,:(ny),:] = spectral_coeff[:,:,:]
 
                 test = np.zeros((nx,nz), dtype=complex)
@@ -410,8 +424,8 @@ class SpectralState(BaseState):
                     test[:,i] = np.ndarray.flatten(np.dot(total[:,:,i],PI.T))
 
                 padfield = np.zeros((int((nx+1)*3/2), int(nz*3/2)), dtype=complex)
-                padfield[:(ny+1),  :nz] = test[:(ny+1),:]
-                padfield[-(ny-1):, :nz] = test[-(ny-1):,  :]
+                padfield[:int((nx+1)/2)+1,  :nz] = test[:int((nx+1)/2)+1,,:]
+                padfield[-int(nx/2):, :nz] = test[-int(nx/2):,  :]
 
                 real_field = np.zeros((int((nx+1)*3/2), int(nz*3/2)),  dtype=complex)
                 real_field2 = np.zeros((int((nx+1)*3/2), int(nz*3/2)),  dtype=complex)
@@ -420,8 +434,11 @@ class SpectralState(BaseState):
                     real_field[i,:] = idct(padfield[i,:])
 
                 for i in range(0,int(nz*3/2)):
-                    real_field2[:,i] = np.fft.ifft(real_field[:,i])*((nx+1)*3/2)*(2)
-
+                    real_field2[:,i] = np.fft.ifft(real_field[:,i])
+                    
+                [nx2 , nz2] = real_field2.shape
+                real_field2 = real_field2*nx2*2
+                    
             else:
                 raise RuntimeError('Direction for vertical slice given incorrectly')
 
@@ -433,7 +450,7 @@ class SpectralState(BaseState):
     def PointValue(file, geometry, field, Xvalue, Yvalue, Zvalue):
 
         if geometry == 'shell' or geometry == 'sphere':
-            print('This Needs work')
+            print('This is not finished yet!')
             pass
 
         elif geometry == 'cartesian':
@@ -441,21 +458,25 @@ class SpectralState(BaseState):
             spectral_coeff = getattr(my_state.fields,field)
             [nx , ny , nz ] = spectral_coeff.shape
 
+            spectral_coeff[:,0,:] = 2*spectral_coeff[:,0,:]
             spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
             total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
-            total[:,:(ny-1),:] = np.fliplr(spectral_coeff_cc[:,:(ny-1),:])
+            
+            for i in range(0,ny-1):
+                total[:,ny-1-i,:] = spectral_coeff_cc[:,i+1,:]            
+            
             total[:,(ny-1):,:] = spectral_coeff[:,:,:]
             [nx2 , ny2 , nz2 ] =total.shape
 
-            Proj_cheb = SpectralState.Cheb_eval(nz2, 0.5, 0.5, Zvalue)
+            Proj_cheb = SpectralState.Cheb_eval(nz2, 1.0, 0, Zvalue)
             Proj_fourier_x = tools.fourier_eval(nx2, Xvalue)
-            Proj_fourier_y = tools.fourier_eval_shift(ny2, Yvalue)
+            Proj_fourier_y = tools.fourier_eval(ny2, Yvalue)
 
             value1 = np.dot(total, Proj_cheb.T)
             value2 = np.dot(value1, Proj_fourier_y.T)
             value3 = np.dot(value2.T,Proj_fourier_x.T )
 
-        return float(value3.real)
+        return float(2*value3.real)
 
 
     # function creating a dictionary to index data for SLFl, WLFl,
