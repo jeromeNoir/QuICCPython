@@ -14,7 +14,7 @@ class SpectralState(BaseState):
     def __init__(self, filename, geometry, file_type='QuICC'):
                 
         # apply the read of the base class
-        BaseState.__init__(self, filename, geometry, file_type='QuICC')
+        BaseState.__init__(self, filename, geometry, file_type=file_type)
         fin = self.fin
             
         # find the spectra
@@ -30,7 +30,7 @@ class SpectralState(BaseState):
                 
                 if isinstance(field, h5py.Group):
                     continue
-                if len(field.value.shape)<2:
+                if len(field[()].shape)<2:
                     continue
                     
                 field_temp = field[:]
@@ -74,8 +74,7 @@ class SpectralState(BaseState):
         """
         # init the self.specRes object
         self.specRes = lambda: None
-        if self.geometry == 'shell' or self.geometry == 'sphere':
-
+        if self.geometry == 'shell' or self.geometry == 'sphere' and self.isEPM == False:
             # read defined resolution
             N = fin['/truncation/spectral/dim1D'][()] + 1
             L = fin['/truncation/spectral/dim2D'][()] + 1
@@ -95,14 +94,25 @@ class SpectralState(BaseState):
             setattr(self.specRes, 'ky', ky)
             setattr(self.specRes, 'kx', kx)
 
+        #TODO: Leo, implement the logic for EPM files
+        elif self.isEPM:
+            # read defined resolution
+            N = fin['/Truncation/N'][()] + 1
+            L = fin['/Truncation/L'][()] + 1
+            M = fin['/Truncation/M'][()] + 1
+            setattr(self.specRes, 'N', N)
+            setattr(self.specRes, 'L', L)
+            setattr(self.specRes, 'M', M)
+
+            #odering 
+            setattr(self, 'ordering', b'WLFl')
+
         else:
 
             raise NotImplementedError('Geometry unknown')
         
         # init the self.physRes object for future use
         self.physRes = lambda: None
-
-        #TODO: Leo, implement the logic for EPM files
 
         # end of function
         pass

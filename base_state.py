@@ -12,10 +12,11 @@ class BaseState:
 
         
         attrs = list(self.fin.attrs.keys())
-        
-        if attrs[2] == "Version" and file_type.lower()!= 'quicc':
-            raise RunTimeError("maybe your file is EPM")
-            
+       
+        if len(attrs) > 2 : 
+            if attrs[2] == "Version" and file_type.lower()!= 'quicc':
+                raise RunTimeError("maybe your file is EPM")
+
         if attrs[1] == "version" and file_type.lower()!= 'epm':
             raise RunTimeError("maybe your file is QuICC")
                             
@@ -25,21 +26,19 @@ class BaseState:
         if file_type.lower()!='quicc':
             self.isEPM = True
         # assuming using QuICC state syntax
-           
-            
         
         # initialize the .parameters object
         self.parameters = lambda: None
                    
         # hardcode set time and timestep
         if not self.isEPM:
-            setattr(self.parameters, 'time', fin['run/time'].value)
-            setattr(self.parameters, 'timestep', fin['run/timestep'].value)
+            setattr(self.parameters, 'time', fin['run/time'][()])
+            setattr(self.parameters, 'timestep', fin['run/timestep'][()])
             for at in fin['physical'].keys():
                 setattr(self.parameters, at, fin['physical'][at].value)
         else:
-            setattr(self.parameters, 'time', fin['RunParameters/Time'].value)
-            setattr(self.parameters, 'timestep', fin['RunParameters/Step'].value)
+            setattr(self.parameters, 'time', fin['RunParameters/Time'][()])
+            setattr(self.parameters, 'timestep', fin['RunParameters/Step'][()])
         
         # import attributes
 
