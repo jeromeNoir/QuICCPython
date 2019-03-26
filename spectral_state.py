@@ -430,7 +430,7 @@ class SpectralState(BaseState):
 
         return real_field2
     
-    def PointValue(self, field='velocity', Xvalue, Yvalue, Zvalue):
+    def PointValue(self, Xvalue, Yvalue, Zvalue,  field='velocity'):
 
         if self.geometry == 'shell' or self.geometry == 'sphere':
 
