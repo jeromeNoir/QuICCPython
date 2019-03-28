@@ -1,6 +1,7 @@
 """
 This module includes important functions to rotate an hdf5 state 
 and perform the integral of vorticity from the spectral velocity field
+autor: leonardo.echeverria@erdw.ethz.ch
 """
 import numpy as np
 import h5py
