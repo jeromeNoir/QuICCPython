@@ -12,7 +12,7 @@ class BaseState:
 
         # check that the file is QuICC generated
         attrs = list(self.fin.attrs.keys())
-        assert (attrs[2] == "Version"), 'File structure not compatible with QuICC, possible EPM file'
+        assert (attrs[2] == "version"), 'File structure not compatible with QuICC, possible EPM file'
                             
         # initialize the .parameters object
         self.parameters = lambda: None
@@ -125,7 +125,7 @@ class SpectralState(BaseState):
             setattr(self.specRes, 'M', M)
 
             # with the resolution read the ordering type
-            setattr(self, 'ordering', fin.attrs['type'])
+            setattr(self, 'ordering', self.fin.attrs['type'])
             
         elif self.geometry == 'cartesian':
 
