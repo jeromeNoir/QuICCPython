@@ -1,3 +1,8 @@
+The purpose of the archive branch is to store the state of the master
+branch of QuICCPython before the architecture changes implemented post
+28th March 2019.
+-Nicolò Lardelli
+
 # QuICCPython
 
 To read the HDF5:
