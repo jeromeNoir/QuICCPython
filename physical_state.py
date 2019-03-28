@@ -1,6 +1,6 @@
 import numpy as np
 from base_state import BaseState
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, interpn
 class PhysicalState(BaseState):
     
     
@@ -146,5 +146,29 @@ class PhysicalState(BaseState):
             Field1 = interp1d(r_grid, getattr(self.fields, fieldname+'_r'), axis=0)(r)
             Field2 = interp1d(r_grid, getattr(self.fields, fieldname+'_theta'), axis=0)(r)
             Field3 = interp1d(r_grid, getattr(self.fields, fieldname+'_phi'), axis=0)(r)
+                    
+        return TTheta, PPhi, [Field1, Field2, Field3]
+
+    # define function for equatorial plane visualization from the visState0000.hdf5 file
+    def PointValue(self, x1, x2, x3, fieldname = 'velocity'):
+
+        if self.geometry == 'shell' or self.geometry == 'sphere':
+            # find the grid in radial and meridional direction
+            x1_grid = self.grid_r
+            x2_grid = self.grid_theta
+            x3_grid = self.grid_phi
+
+        elif self.geometry == 'cartesian':
+            
+            x1_grid = ...
+            x2_grid = ...
+            x3_grid = ...
+        else:
+            raise NotImplementedError(self.geometry + ' not implemented as geometry')
+        
+
+        Field1 = interp1d((x1_grid, x2_grid, x3_grid), getattr(self.fields, fieldname+'_r'), (x1, x2, x3))
+        Field2 = interp1d((x1_grid, x2_grid, x3_grid), getattr(self.fields, fieldname+'_theta'), (x1, x2, x3))
+        Field3 = interp1d((x1_grid, x2_grid, x3_grid), getattr(self.fields, fieldname+'_phi'), (x1, x2, x3))
                     
         return TTheta, PPhi, [Field1, Field2, Field3]
