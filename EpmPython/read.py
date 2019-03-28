@@ -11,7 +11,6 @@ sys.path.append(env['HOME']+'/quicc-github/QuICC/Python/')
 #import integrateWorland as wor 
 
 class BaseState:
-    
     def __init__(self, filename, geometry, file_type='QuICC'):
         
         # PhysicalState('state0000.hdf5',geometry='Sphere'
@@ -49,8 +48,6 @@ class BaseState:
             setattr(self.parameters, 'timestep', fin['RunParameters/Step'][()])
         
         # import attributes
-
-        
         #self.geometry = fin.attrs['type']
         self.geometry = geometry.lower()
         if(self.geometry not in list(['cartesian', 'shell', 'sphere'])):
@@ -1286,4 +1283,59 @@ class PhysicalState(BaseState):
             Field2 = interp1d(r_grid, getattr(self.fields, fieldname+'_theta'), axis=0)(r)
             Field3 = interp1d(r_grid, getattr(self.fields, fieldname+'_phi'), axis=0)(r)
                     
-        return TTheta, PPhi, [Field1, Field2, Field3] 
+        return TTheta, PPhi, [Field1, Field2, Field3]
+
+# the function takes care of the looping over modes
+def makeEquatorialSlice(state, p=0, modeRes = (120,120) ):
+
+    #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
+    #    raise NotImplementedError('makeEquatorialSlice is not implemented for the geometry: '+self.geometry)
+
+    # generate indexer
+    # this generate the index lenght also
+    state.idx = state.idxlm()
+    ridx = {v: k for k, v in state.idx.items()}
+
+    #if modeRes == None:
+    #    modeRes=(self.specRes.L, self.specRes.M)
+    # generate grid
+    X, Y, r, phi = state.makeEquatorialGrid()
+    grid_r = r
+    grid_phi = phi
+    # pad the fields
+    dataT = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataT[:,:state.specRes.N] = state.fields.velocity_tor
+    dataP = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataP[:,:state.specRes.N] = state.fields.velocity_pol
+    
+    # prepare the output fields
+    FR = np.zeros((len(r), int(state.physRes.nPhi/2)+1), dtype = 'complex')
+    FTheta = np.zeros_like(FR)
+    FPhi = np.zeros_like(FR)
+    FieldOut = [FR, FTheta, FPhi]
+            
+    # initialize the spherical harmonics
+    # only for the equatorial values
+    state.makeSphericalHarmonics(np.array([np.pi/2]))
+
+    for i in range(state.nModes):
+        # get the l and m of the index
+        l, m = ridx[i]
+        # statement to reduce the number of modes considered
+        #if l> modeRes[0] or m> modeRes[1]:
+        #    continue
+        #Core function to evaluate (l,m) modes summing onto FieldOut             
+        state.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, None, phi, kron='equatorial', phi0=p)
+
+    field2 = []
+    for i, f in enumerate(FieldOut):
+        temp = f
+        if i > 0:
+            temp[0,:] *= 2.
+        f = np.fft.irfft(temp, axis=1)
+        f = f * len(f[0,:])
+        f = np.hstack([f,np.column_stack(f[:,0]).T])
+        field2.append(f)
+    FieldOut = field2
+    #return X, Y, field2
+    return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
