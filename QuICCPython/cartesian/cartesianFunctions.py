@@ -4,7 +4,7 @@ from numpy.polynomial import chebyshev as cheb
 from scipy.fftpack import dct, idct
 
 
-def PointValue(data, field, Xvalue, Yvalue, Zvalue):
+def getPointValue(data, field, Xvalue, Yvalue, Zvalue):
     """
         INPUT:
         data
