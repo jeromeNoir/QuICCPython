@@ -1,3 +1,5 @@
+The branch devel is supposed to self-contain the mess of change of architecture before merging to the "new master"
+
 # QuICCPython
 
 To read the HDF5:

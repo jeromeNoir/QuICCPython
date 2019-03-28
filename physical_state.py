@@ -1,52 +1,6 @@
 import numpy as np
 from base_state import BaseState
-from scipy.interpolate import interp1d
-class PhysicalState(BaseState):
-    
-    
-    def __init__(self, filename, geometry, file_type='QuICC'):
-        
-        # apply the read of the base class
-        BaseState.__init__(self, filename, geometry, file_type='QuICC')
-        fin = self.fin
-        # read the grid
-        if not self.isEPM:
-            for at in fin['mesh']:
-                setattr(self, at, fin['mesh'][at].value)
-            
-            # find the fields
-            self.fields = lambda:None
-            #temp = object()
-            for group in fin.keys():
-
-                for subg in fin[group]:
-
-                    # we check to import fields which are at least 2-dimensional tensors
-                    field = np.array(fin[group][subg])
-                    if len(field.shape)<2:
-                        continue
-
-                    # set attributes
-                    setattr(self.fields, subg, field)
-                    
-        else:
-            for at in fin['FSOuter/grid']:
-                setattr(self, at, fin['FSOuter/grid'][at].value)
-            
-            # find the fields
-            self.fields = lambda:None
-            #temp = object()
-            for group in fin['FSOuter'].keys():
-
-                for subg in fin['FSOuter'][group]:
-
-                    # we check to import fields which are at least 2-dimensional tensors
-                    field = np.array(fin['FSOuter'][group][subg])
-                    if len(field.shape)<2:
-                        continue
-
-                    # set attributes
-                    setattr(self.fields, subg, field)
+from scipy.interpolate import interp1d, interpn
 
 
     # define function for equatorial plane visualization from the visState0000.hdf5 file
@@ -146,5 +100,29 @@ class PhysicalState(BaseState):
             Field1 = interp1d(r_grid, getattr(self.fields, fieldname+'_r'), axis=0)(r)
             Field2 = interp1d(r_grid, getattr(self.fields, fieldname+'_theta'), axis=0)(r)
             Field3 = interp1d(r_grid, getattr(self.fields, fieldname+'_phi'), axis=0)(r)
+                    
+        return TTheta, PPhi, [Field1, Field2, Field3]
+
+    # define function for equatorial plane visualization from the visState0000.hdf5 file
+    def PointValue(self, x1, x2, x3, fieldname = 'velocity'):
+
+        if self.geometry == 'shell' or self.geometry == 'sphere':
+            # find the grid in radial and meridional direction
+            x1_grid = self.grid_r
+            x2_grid = self.grid_theta
+            x3_grid = self.grid_phi
+
+        elif self.geometry == 'cartesian':
+            
+            x1_grid = ...
+            x2_grid = ...
+            x3_grid = ...
+        else:
+            raise NotImplementedError(self.geometry + ' not implemented as geometry')
+        
+
+        Field1 = interp1d((x1_grid, x2_grid, x3_grid), getattr(self.fields, fieldname+'_r'), (x1, x2, x3))
+        Field2 = interp1d((x1_grid, x2_grid, x3_grid), getattr(self.fields, fieldname+'_theta'), (x1, x2, x3))
+        Field3 = interp1d((x1_grid, x2_grid, x3_grid), getattr(self.fields, fieldname+'_phi'), (x1, x2, x3))
                     
         return TTheta, PPhi, [Field1, Field2, Field3]
