@@ -12,7 +12,7 @@ class BaseState:
 
         # check that the file is QuICC generated
         attrs = list(self.fin.attrs.keys())
-        assert (attrs[2] == "version"), 'File structure not compatible with QuICC, possible EPM file'
+        #assert (attrs[1] == "version"), 'File structure not compatible with QuICC, possible EPM file'
                             
         # initialize the .parameters object
         self.parameters = lambda: None
