@@ -1,5 +1,5 @@
 from base_state import BaseState
-import tools
+import sphere
 import h5py
 import numpy as np
 from scipy.fftpack import dct, idct
@@ -358,7 +358,7 @@ class SpectralState(BaseState):
             spectral_coeff = getattr(my_state.fields,field)
             [nx , ny , nz ] = spectral_coeff.shape
             x = np.array([level])
-            PI = tools.cheb_eval(nz, 1.0, 0, x);
+            PI = sphere.cheb_eval(nz, 1.0, 0, x);
             
             spectral_coeff[:,0,:] = 2* spectral_coeff[:,0,:]
             padfield = np.zeros((int((nx+1)*3/2), int((ny+1)*3/2), nz  ), dtype=complex)
@@ -396,7 +396,7 @@ class SpectralState(BaseState):
             [nx , ny , nz ] = spectral_coeff.shape
 
             if direction == 'x':
-                PI = tools.fourier_eval(nx, level);
+                PI = sphere.fourier_eval(nx, level);
 
                 test = np.zeros((ny,nz), dtype=complex)
                 
@@ -423,7 +423,7 @@ class SpectralState(BaseState):
                 real_field2 = real_field2*ny2
                 
             elif direction == 'y':
-                PI = tools.fourier_eval(2*ny-1, level);
+                PI = sphere.fourier_eval(2*ny-1, level);
                 spectral_coeff[:,0,:] = 2* spectral_coeff[:,0,:]
                 spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
 
@@ -484,8 +484,8 @@ class SpectralState(BaseState):
             [nx2 , ny2 , nz2 ] =total.shape
 
             Proj_cheb = SpectralState.Cheb_eval(nz2, 1.0, 0, Zvalue)
-            Proj_fourier_x = tools.fourier_eval(nx2, Xvalue)
-            Proj_fourier_y = tools.fourier_eval(ny2, Yvalue)
+            Proj_fourier_x = sphere.fourier_eval(nx2, Xvalue)
+            Proj_fourier_y = sphere.fourier_eval(ny2, Yvalue)
 
             value1 = np.dot(total, Proj_cheb.T)
             value2 = np.dot(value1, Proj_fourier_y.T)
@@ -542,7 +542,7 @@ class SpectralState(BaseState):
         for m in range(self.specRes.M):
             
             # compute the assoc legendre
-            temp = tools.plm(self.specRes.L-1, m, x)
+            temp = sphere.plm(self.specRes.L-1, m, x)
             #temp = wor.plm(self.specRes.L-1, m, x) #Leo: this implementation doesn't work 
 
             # assign the Plm to storage
@@ -577,7 +577,7 @@ class SpectralState(BaseState):
             #temp = np.sqrt((2.0*l+1)/(l-m)) * np.sqrt((2.0*l-1.0)/(l+m))*self.xth*self.plm(l-1,m)-\
                 #np.sqrt((2.0*l+1)/(2.0*l-3.0))*np.sqrt((l+m-1.0)/(l+m))*np.sqrt((l-m-1.0)/(l-m))\
                 #* self.plm(l-2, m)
-            temp = tools.plm(self.specRes.L-1, m, x)
+            temp = sphere.plm(self.specRes.L-1, m, x)
             return temp[:, l - m]
         else:
             return self.Plm[self.idx[l, m], :]
@@ -872,13 +872,13 @@ class SpectralState(BaseState):
             eimp = np.exp(1j *  m * phi0)
             
             idx_ = self.idx[l, m]
-            Field_r += np.real(tools.kron(q_part, self.Plm[idx_, :]) *
+            Field_r += np.real(sphere.kron(q_part, self.Plm[idx_, :]) *
                                eimp) * factor
             
-            Field_theta += np.real(tools.kron(s_part, self.dPlm[idx_, :]) * eimp) * 2
-            Field_theta += np.real(tools.kron(t_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor
-            Field_phi += np.real(tools.kron(s_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor 
-            Field_phi -= np.real(tools.kron(t_part, self.dPlm[idx_, :]) * eimp) * 2
+            Field_theta += np.real(sphere.kron(s_part, self.dPlm[idx_, :]) * eimp) * 2
+            Field_theta += np.real(sphere.kron(t_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor
+            Field_phi += np.real(sphere.kron(s_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor 
+            Field_phi -= np.real(sphere.kron(t_part, self.dPlm[idx_, :]) * eimp) * 2
 
         elif kwargs['kron'] == 'equatorial':
             """
