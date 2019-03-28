@@ -7,7 +7,7 @@ from numpy.polynomial import chebyshev as cheb
 #env = os.environ.copy()
 #sys.path.append(env['HOME']+'/workspace/QuICC/Python/')
 #from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
-from energy_tools import ortho_pol_q, ortho_pol_s, ortho_tor
+from QuICCPython.shell.energy_tools import ortho_pol_q, ortho_pol_s, ortho_tor
 
     
 def make1DGrid(spec_state, gridType, specRes):
@@ -84,8 +84,8 @@ def makeMeridionalGrid(spec_state):
     """
     
     # set default argument
-    x = spec_state.make1DGrid('ChebyshevShell', spec_state.specRes.N)
-    y = spec_state.make1DGrid('Legendre', spec_state.specRes.L)
+    x = make1DGrid(spec_state, 'ChebyshevShell', spec_state.specRes.N)
+    y = make1DGrid(spec_state, 'Legendre', spec_state.specRes.L)
 
     # make the 2D grid via Kronecker product
     R, Th = np.meshgrid(x, y)
@@ -105,8 +105,8 @@ def makeEquatorialGrid(spec_state):
     y: np.array; second grid
     """
     # set default argument
-    x = spec_state.make1DGrid('ChebyshevShell', spec_state.specRes.N)
-    y = spec_state.make1DGrid('Fourier', spec_state.specRes.M)
+    x = make1DGrid(spec_state, 'ChebyshevShell', spec_state.specRes.N)
+    y = make1DGrid(spec_state, 'Fourier', spec_state.specRes.M)
 
     # make the 2D grid via Kronecker product
     R, Phi = np.meshgrid(x, y)
@@ -126,11 +126,11 @@ def makeIsoradiusGrid(spec_state):
     y: np.array; second grid
     """
     # set default argument
-    x = spec_state.make1DGrid('Legendre', spec_state.specRes.L)
-    y = spec_state.make1DGrid('Fourier', spec_state.specRes.M)
+    x = make1DGrid(spec_state, 'Legendre', spec_state.specRes.L)
+    y = make1DGrid(spec_state, 'Fourier', spec_state.specRes.M)
     
     # necessary for matters of transforms (python need to know nR)
-    spec_state.make1DGrid('ts', spec_state.specRes.N)
+    make1DGrid(spec_state, 'ts', spec_state.specRes.N)
     
     # make the 2D grid via Kronecker product
     X, Y = np.meshgrid(x, y)
@@ -141,7 +141,7 @@ def makeIsoradiusGrid(spec_state):
 def makePointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
 
     # assume that the argument are r=x theta=y and phi=z
-        assert(len(Xvalue) == len(Yvalue))
+    assert(len(Xvalue) == len(Yvalue))
     assert(len(Xvalue) == len(Zvalue))
     r = Xvalue
     theta = Yvalue
@@ -149,11 +149,11 @@ def makePointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
 
     # generate indexer
     # this generate the index lenght also
-    spec_state.idx = spec_state.idxlm()
+    spec_state.idx = idxlm(spec_state)
     ridx = {v: k for k, v in spec_state.idx.items()}
 
     # generate grid
-    spec_state.makeMeridionalGrid()
+    makeMeridionalGrid(spec_state)
 
     # pad the fields
     dataT = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
@@ -188,7 +188,7 @@ def makePointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
 # SLFm or WLFm geometries
 def idxlm(spec_state):
 
-    assert (spec_state.geometry == 'shell'), 'The idxlm dictionary is not implemented for the current geometry', spec_state.geometry
+    assert (spec_state.geometry == 'shell'), 'The idxlm dictionary is not implemented for the current geometry: '+ spec_state.geometry
 
     # initialize an empty dictionary
     idxlm = {}
@@ -242,15 +242,15 @@ def makeSphericalHarmonics(spec_state, theta):
     # compute dPlm and Plm_sin
     for i in range(spec_state.nModes):
         l, m = ridx[i]
-        spec_state.dPlm[i, :] = -.5 * (((l+m)*(l-m+1))**0.5 * spec_state.plm(l,m-1) -
-                                 ((l-m)*(l+m+1))**.5 * spec_state.plm(l, m+1, x) )
+        spec_state.dPlm[i, :] = -.5 * (((l+m)*(l-m+1))**0.5 * plm(spec_state, l, m-1) -
+                                 ((l-m)*(l+m+1))**.5 * plm(spec_state, l, m+1, x) )
 
         if m!=0:
             spec_state.Plm_sin[i, :] = -.5/m * (((l-m)*(l-m-1))**.5 *
-                                          spec_state.plm(l-1, m+1, x) + ((l+m)*(l+m-1))**.5 *
-                                        spec_state.plm(l-1, m-1)) * ((2*l+1)/(2*l-1))**.5
+                                          plm(spec_state, l-1, m+1, x) + ((l+m)*(l+m-1))**.5 *
+                                        plm(spec_state, l-1, m-1)) * ((2*l+1)/(2*l-1))**.5
         else:
-            spec_state.Plm_sin[i, :] = spec_state.plm(l, m)/(1-x**2)**.5
+            spec_state.Plm_sin[i, :] = plm(spec_state, l, m)/(1-x**2)**.5
 
     pass
 
@@ -277,11 +277,11 @@ def makeMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
 
     # generate indexer
     # this generate the index lenght also
-    spec_state.idx = spec_state.idxlm()
+    spec_state.idx = idxlm(spec_state)
     ridx = {v: k for k, v in spec_state.idx.items()}
 
     # generate grid
-    X, Y, r, theta = spec_state.makeMeridionalGrid()
+    X, Y, r, theta = makeMeridionalGrid(spec_state)
 
     # pad the fields
     dataT = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
@@ -296,7 +296,7 @@ def makeMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
     FieldOut = [FR, FTheta, FPhi]
 
     # initialize the spherical harmonics
-    spec_state.makeSphericalHarmonics(theta)
+    makeSphericalHarmonics(spec_state, theta)
 
     for i in range(spec_state.nModes):
 
@@ -317,11 +317,11 @@ def makeEquatorialSlice(spec_state, phi0=0 ):
 
     # generate indexer
     # this generate the index lenght also
-    spec_state.idx = spec_state.idxlm()
+    spec_state.idx = idxlm(spec_state)
     ridx = {v: k for k, v in spec_state.idx.items()}
     
     # generate grid
-    X, Y, r, phi = spec_state.makeEquatorialGrid()
+    X, Y, r, phi = makeEquatorialGrid(spec_state)
     spec_state.grid_r = r
     spec_state.grid_phi = phi
     # pad the fields
@@ -338,7 +338,7 @@ def makeEquatorialSlice(spec_state, phi0=0 ):
 
     # initialize the spherical harmonics
     # only for the equatorial values
-    spec_state.makeSphericalHarmonics(np.array([np.pi/2]))
+    makeSphericalHarmonics(spec_state, np.array([np.pi/2]))
 
     for i in range(spec_state.nModes):
 
@@ -557,7 +557,7 @@ def compute_energy(spec_state, field_name='velocity'):
     vol = 4/3*np.pi*(ro**3-ri**3)
 
     # generate idx indicer
-    spec_state.idx = spec_state.idxlm()
+    spec_state.idx = idxlm(spec_state)
 
     # obtain the 2 fields
     Tfield = getattr(spec_state.fields, field_name + '_tor')
@@ -615,8 +615,8 @@ def compute_mode_product(spec_state, spectral_state, m, field_name = 'velocity')
     vol = 4/3*np.pi*(ro**3-ri**3)
 
     # generate idx indicer
-    spec_state.idx = spec_state.idxlm()
-    idxQ = spectral_state.idxlm()
+    spec_state.idx = idxlm(spec_state)
+    idxQ = idxlm(spectra_state)
 
     # obtain the 2 fields
     Tfield = getattr(spec_state.fields, field_name + '_tor')
