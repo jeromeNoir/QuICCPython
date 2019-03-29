@@ -379,7 +379,7 @@ def makeIsoradiusSlice(spec_state, r=None, phi0=0 ):
     """
 
     # generate grid
-    TTheta, PPhi, theta, phi = spec_state.makeIsoradiusGrid()
+    TTheta, PPhi, theta, phi = makeIsoradiusGrid(spec_state)
     spec_state.grid_theta = theta
     spec_state.grid_phi = phi
     # pad the fields
@@ -407,7 +407,7 @@ def makeIsoradiusSlice(spec_state, r=None, phi0=0 ):
 
 
     # initialize the spherical harmonics
-    spec_state.makeSphericalHarmonics(theta)
+    makeSphericalHarmonics(spec_state, theta)
 
     for i in range(spec_state.nModes):
 
