@@ -594,7 +594,6 @@ class SpectralState(BaseState):
             t_part = None
         
         else: # hence either meridional or equatorial
-            #TODO: Leo, Where do you get this???
             # prepare the q_part
             # q = l*(l+1) * Poloidal / r            
             # idct: inverse discrete cosine transform
@@ -848,14 +847,13 @@ class SpectralState(BaseState):
         return tor_product + pol_product
             
 class PhysicalState(BaseState):
-    
-    
-    def __init__(self, filename, geometry, file_type='QuICC'):
+    def __init__(self, filename):#, geometry, file_type='QuICC'):
         
         # apply the read of the base class
-        BaseState.__init__(self, filename, geometry, file_type='QuICC')
+        BaseState.__init__(self, filename)#, geometry, file_type='QuICC')
         fin = self.fin
         # read the grid
+        """
         if not self.isEPM:
             for at in fin['mesh']:
                 setattr(self, at, fin['mesh'][at].value)
@@ -874,25 +872,26 @@ class PhysicalState(BaseState):
 
                     # set attributes
                     setattr(self.fields, subg, field)
-                    
+                 
         else:
-            for at in fin['FSOuter/grid']:
-                setattr(self, at, fin['FSOuter/grid'][at].value)
+        """
+        
+        for at in fin['FSOuter/grid']:
+            setattr(self, at, fin['FSOuter/grid'][at].value)
             
-            # find the fields
-            self.fields = lambda:None
-            #temp = object()
-            for group in fin['FSOuter'].keys():
+        # find the fields
+        self.fields = lambda:None
+        #temp = object()
+        for group in fin['FSOuter'].keys():
 
-                for subg in fin['FSOuter'][group]:
+            for subg in fin['FSOuter'][group]:
+                # we check to import fields which are at least 2-dimensional tensors
+                field = np.array(fin['FSOuter'][group][subg])
+                if len(field.shape)<2:
+                    continue
 
-                    # we check to import fields which are at least 2-dimensional tensors
-                    field = np.array(fin['FSOuter'][group][subg])
-                    if len(field.shape)<2:
-                        continue
-
-                    # set attributes
-                    setattr(self.fields, subg, field)
+                # set attributes
+                setattr(self.fields, subg, field)
 
 
     # define function for equatorial plane visualization from the visState0000.hdf5 file
@@ -997,10 +996,8 @@ class PhysicalState(BaseState):
 
 # the function takes care of the looping over modes
 def makeEquatorialSlice(state, p=0, modeRes = (120,120) ):
-
     #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
     #    raise NotImplementedError('makeEquatorialSlice is not implemented for the geometry: '+self.geometry)
-
     # generate indexer
     # this generate the index lenght also
     state.idx = state.idxlm()
@@ -1048,4 +1045,58 @@ def makeEquatorialSlice(state, p=0, modeRes = (120,120) ):
         field2.append(f)
     FieldOut = field2
     #return X, Y, field2
+    return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+
+def makeMeridionalSlice(state, p=0, modeRes = (120,120) ):
+    """
+    p: phi angle of meridional splice 
+    modeRes: resolution of output
+    the function takes care of the looping over modes
+    TODO: Nico add comments and change syntax   
+    """
+
+    #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
+    #    raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
+
+    # generate indexer
+    # this generate the index lenght also
+    state.idx = state.idxlm()
+    # returns (l,m) from index 
+    ridx = {v: k for k, v in state.idx.items()}
+
+    """
+    if modeRes == None:
+        modeRes=(self.specRes.L, self.specRes.M)
+    """
+    
+    # generate grid
+    # X, Y: meshgrid for plotting in cartesian coordinates
+    # r, theta: grid used for evaluation 
+    X, Y, r, theta = state.makeMeridionalGrid()
+    
+    # pad the fields to apply 3/2 rule 
+    dataT = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataT[:,:state.specRes.N] = state.fields.velocity_tor
+    dataP = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataP[:,:state.specRes.N] = state.fields.velocity_pol
+    
+    # prepare the output fields in radial, theta, and phi 
+    FR = np.zeros((len(r), len(theta)))
+    FTheta = np.zeros_like(FR)
+    FPhi = np.zeros_like(FR)
+    FieldOut = [FR, FTheta, FPhi]
+            
+    # initialize the spherical harmonics
+    state.makeSphericalHarmonics(theta)
+
+    for i in range(state.nModes):
+        
+        # get the l and m of the index
+        l, m = ridx[i]
+
+        # statement to redute the number of modes considered
+        #if l> modeRes[0] or m> modeRes[1]:
+        #continue
+        state.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, theta, None, kron='meridional', phi0=p)
+
     return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
