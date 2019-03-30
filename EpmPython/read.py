@@ -6,13 +6,15 @@ from numpy.polynomial import chebyshev as cheb
 import sys, os
 env = os.environ.copy()
 sys.path.append(env['HOME']+'/quicc-github/QuICC/Python/')
+import EpmPython.sphere.spectral as spectral
 #get it from crossover_master_release
 #from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
 #import integrateWorland as wor 
 
 class BaseState:
     def __init__(self, filename): #, geometry, file_type='QuICC'):
-        
+        self.filename = filename 
+
         # PhysicalState('state0000.hdf5',geometry='Sphere'
         fin = h5py.File(filename, 'r')
         self.fin = fin
@@ -22,12 +24,7 @@ class BaseState:
         if attrs[1] == "version": # and file_type.lower()!= 'epm':
             raise RunTimeError("maybe your file is QuICC")
                             
-        # initialize the .parameters object
-        self.parameters = lambda: None
-                   
-        setattr(self.parameters, 'time', fin['RunParameters/Time'][()])
-        setattr(self.parameters, 'timestep', fin['RunParameters/Step'][()])
-        
+        #fin.close() 
     pass
 
 class SpectralState(BaseState):
@@ -37,7 +34,12 @@ class SpectralState(BaseState):
         # apply the read of the base class
         BaseState.__init__(self, filename) #:, geometry, file_type=file_type)
         fin = self.fin
-            
+        
+        # initialize the .parameters object
+        self.parameters = lambda: None
+        setattr(self.parameters, 'time', fin['RunParameters/Time'][()])
+        setattr(self.parameters, 'timestep', fin['RunParameters/Step'][()])
+
         # find the spectra
         self.fields = lambda:None
         
@@ -83,6 +85,9 @@ class SpectralState(BaseState):
             setattr(self.parameters, at, fin['PhysicalParameters'][at][()])
 
         self.readResolution(fin)
+
+        fin.close() 
+        
         
     def readResolution(self, fin):
         """
@@ -262,37 +267,6 @@ class SpectralState(BaseState):
 
         return X, Y, x, y    
 
-    def PointValue(file, geometry, field, Xvalue, Yvalue, Zvalue):
-        if geometry == 'shell' or geometry == 'sphere':
-            print('This is not finished yet!')
-            pass
-
-        elif geometry == 'cartesian':
-            my_state = SpectralState(file,geometry)
-            spectral_coeff = getattr(my_state.fields,field)
-            [nx , ny , nz ] = spectral_coeff.shape
-
-            spectral_coeff[:,0,:] = 2*spectral_coeff[:,0,:]
-            spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
-            total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
-            
-            for i in range(0,ny-1):
-                total[:,ny-1-i,:] = spectral_coeff_cc[:,i+1,:]            
-            
-            total[:,(ny-1):,:] = spectral_coeff[:,:,:]
-            [nx2 , ny2 , nz2 ] =total.shape
-
-            Proj_cheb = SpectralState.Cheb_eval(nz2, 1.0, 0, Zvalue)
-            Proj_fourier_x = sphere.fourier_eval(nx2, Xvalue)
-            Proj_fourier_y = sphere.fourier_eval(ny2, Yvalue)
-
-            value1 = np.dot(total, Proj_cheb.T)
-            value2 = np.dot(value1, Proj_fourier_y.T)
-            value3 = np.dot(value2.T,Proj_fourier_x.T )
-
-        return float(2*value3.real)
-
-
     # function creating a dictionary to index data for SLFl, WLFl,
     # SLFm or WLFm geometries
     def idxlm(self):
@@ -374,317 +348,24 @@ class SpectralState(BaseState):
             return self.Plm[self.idx[l, m], :]
         
 
-    def makeMeridionalSlice(self, p=0, modeRes = (120,120) ):
+    def getMeridionalSlice(self, p=0, modeRes = (120,120) ):
         """
         the function takes care of the looping over modes
         TODO: Nico add comments and change syntax   
         """
-
-        #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
-        #    raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
-
-        # generate indexer
-        # this generate the index lenght also
-        self.idx = self.idxlm()
-        # returns (l,m) from index 
-        ridx = {v: k for k, v in self.idx.items()}
-
-        """
-        if modeRes == None:
-            modeRes=(self.specRes.L, self.specRes.M)
-        """
         
-        # generate grid
-        # X, Y: meshgrid for plotting in cartesian coordinates
-        # r, theta: grid used for evaluation 
-        X, Y, r, theta = self.makeMeridionalGrid()
-        
-        # pad the fields to apply 3/2 rule 
-        dataT = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
-        dataT[:,:self.specRes.N] = self.fields.velocity_tor
-        dataP = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
-        dataP[:,:self.specRes.N] = self.fields.velocity_pol
-        
-        # prepare the output fields in radial, theta, and phi 
-        FR = np.zeros((len(r), len(theta)))
-        FTheta = np.zeros_like(FR)
-        FPhi = np.zeros_like(FR)
-        FieldOut = [FR, FTheta, FPhi]
-                
-        # initialize the spherical harmonics
-        self.makeSphericalHarmonics(theta)
+        merSlice = spectral.getMeridionalSlice(self, p, modeRes)
 
-        for i in range(self.nModes):
-            
-            # get the l and m of the index
-            l, m = ridx[i]
-
-            # statement to redute the number of modes considered
-            #if l> modeRes[0] or m> modeRes[1]:
-            #continue
-            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                  :], r, theta, None, kron='meridional', phi0=p)
-
-        return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
-
+        return merSlice 
 
     # the function takes care of the looping over modes
-    def makeEquatorialSlice(self, p=0, modeRes = (120,120) ):
-        #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
-        #    raise NotImplementedError('makeEquatorialSlice is not implemented for the geometry: '+self.geometry)
-        # generate indexer
-        # this generate the index lenght also
-        self.idx = self.idxlm()
-        ridx = {v: k for k, v in self.idx.items()}
+    def getEquatorialSlice(self, p=0, modeRes = (120,120) ):
 
-        #if modeRes == None:
-        #    modeRes=(self.specRes.L, self.specRes.M)
-        # generate grid
-        X, Y, r, phi = self.makeEquatorialGrid()
-        self.grid_r = r
-        self.grid_phi = phi
-        # pad the fields
-        dataT = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
-        dataT[:,:self.specRes.N] = self.fields.velocity_tor
-        dataP = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
-        dataP[:,:self.specRes.N] = self.fields.velocity_pol
-        
-        # prepare the output fields
-        FR = np.zeros((len(r), int(self.physRes.nPhi/2)+1), dtype = 'complex')
-        FTheta = np.zeros_like(FR)
-        FPhi = np.zeros_like(FR)
-        FieldOut = [FR, FTheta, FPhi]
-                
-        # initialize the spherical harmonics
-        # only for the equatorial values
-        self.makeSphericalHarmonics(np.array([np.pi/2]))
+        eqSlice = spectral.getEquatorialSlice(self, p, modeRes)
 
-        for i in range(self.nModes):
-            # get the l and m of the index
-            l, m = ridx[i]
-            # statement to reduce the number of modes considered
-            #if l> modeRes[0] or m> modeRes[1]:
-            #    continue
-            #Core function to evaluate (l,m) modes summing onto FieldOut             
-            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, None, phi, kron='equatorial', phi0=p)
+        return eqSlice
 
-        field2 = []
-        for i, f in enumerate(FieldOut):
-            temp = f
-            if i > 0:
-                temp[0,:] *= 2.
-            f = np.fft.irfft(temp, axis=1)
-            f = f * len(f[0,:])
-            f = np.hstack([f,np.column_stack(f[:,0]).T])
-            field2.append(f)
-        FieldOut = field2
-        #return X, Y, field2
-        return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
-
-    # the function takes care of the looping over modes
-    def makeIsoradiusSlice(self, r=None, p=0, modeRes = (120,120) ):
-
-        #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
-        #    raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
-
-        # generate indexer
-        # this generate the index lenght also
-        self.idx = self.idxlm()
-        ridx = {v: k for k, v in self.idx.items()}
-
-        """
-        if modeRes == None:
-            modeRes=(self.specRes.L, self.specRes.M)
-        """
-        
-        # generate grid
-        TTheta, PPhi, theta, phi = self.makeIsoradiusGrid()
-        self.grid_theta = theta
-        self.grid_phi = phi
-        # pad the fields
-        dataT = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
-        dataT[:,:self.specRes.N] = self.fields.velocity_tor
-        dataP = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
-        dataP[:,:self.specRes.N] = self.fields.velocity_pol
-
-        
-        # prepare the output fields
-        #FR = np.zeros((len(theta), len(phi)))
-        # attempt the Fourier tranform approach
-        FR = np.zeros((len(theta), int(self.physRes.nPhi/2)+1), dtype = 'complex')
-        FTheta = np.zeros_like(FR)
-        FPhi = np.zeros_like(FR)
-        FieldOut = [FR, FTheta, FPhi]
-
-        # prepare the "collocation point"
-        if r == None:
-            x = 0
-            r = .5*(self.eta+1)/(1-self.eta)
-        else:
-            self.a, self.b = .5, .5 * (1+self.eta)/(1-self.eta)
-            x = (r - self.b)/self.a
-            
-            
-        # initialize the spherical harmonics
-        self.makeSphericalHarmonics(theta)
-        
-        for i in range(self.nModes):
-            
-            # get the l and m of the index
-            l, m = ridx[i]
-
-            # statement to redute the number of modes considered
-            #if l> modeRes[0] or m> modeRes[1]:
-            #continue
-            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                  :], r, theta, phi, kron='isogrid', phi0=p, x=x)
-
-        field2 = []
-        for i, f in enumerate(FieldOut):
-            temp = f
-            if i > 0:
-                temp[:,0] *= 2.
-            f = np.fft.irfft(temp, axis=1)
-            f = f * len(f[0,:])
-            f = np.hstack([f,np.column_stack(f[:,0]).T])
-            field2.append(f)
-                             
-        FieldOut = field2
-        return {'theta': TTheta, 'phi': PPhi, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
-
-    def evaluate_mode(self, l, m, *args, **kwargs):
-        """
-        evaluate (l,m) mode and return FieldOut
-        input: 
-        spectral coefficients: dataT, dataP, 
-        physical grid: r, theta, phi0
-        kron: 'meridional' or 'equatorial'
-        outpu: FieldOut
-        e.g:
-        evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i, :], r, theta, kron='meridional', phi0=p)
-        """
-        #print(l, m)
-        # raise exception if wrong geometry
-        #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
-        #    raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
-
-        # prepare the input data
-        #Evaluated fields 
-        Field_r = args[0][0]
-        Field_theta = args[0][1]
-        Field_phi = args[0][2]
-        #spectral coefficients
-        modeT = args[1]
-        modeP = args[2]
-        #grid points 
-        r = args[3]
-        theta = args[4]
-        phi = args[5]
-        phi0 = kwargs['phi0']
-
-        
-        # define factor
-        factor = 1. if m==0 else 2.
-
-        if kwargs['kron'] == 'isogrid':
-            x = kwargs['x']
-            #TODO: Leo
-            q_part = None
-            s_part = None
-            t_part = None
-        
-        else: # hence either meridional or equatorial
-            # prepare the q_part
-            # q = l*(l+1) * Poloidal / r            
-            # idct: inverse discrete cosine transform
-            # type = 2: type of transform 
-            # q = Field_radial 
-            # prepare the q_part
-            # idct = \sum c_n * T_n(xj)
-            modeP_r = np.zeros_like(r)
-
-            # prepare the s_part
-            # s_part = orthogonal to Field_radial and Field_Toroidal
-            # s_part = (Poloidal)/r + d(Poloidal)/dr = 1/r d(Poloidal)/dr
-            dP = np.zeros_like(r)
-
-            # prepare the t_part
-            # t_part = Field_Toroidal                
-            t_part = np.zeros_like(r)
-
-            for n in range(self.specRes.N):
-                modeP_r=modeP_r+modeP[n]*sphere.W(n, l, r)/r
-                dP = dP+modeP[n]*sphere.diffW(n, l, r)
-                t_part = t_part + modeT[n]*sphere.W(n,l,r)
-
-            q_part =  modeP_r*l*(l+1)#same stuff
-            s_part = modeP_r + dP 
-        
-        # depending on the kron type it changes how 2d data are formed
-        # Mapping from qst to r,theta, phi 
-        # phi0: azimuthal angle of meridional plane. It's also the phase shift of the flow with respect to the mantle frame, 
-        if kwargs['kron'] == 'meridional':
-            eimp = np.exp(1j *  m * phi0)
-            
-            idx_ = self.idx[l, m]
-            Field_r += np.real(sphere.kron(q_part, self.Plm[idx_, :]) *
-                               eimp) * factor
-            
-            Field_theta += np.real(sphere.kron(s_part, self.dPlm[idx_, :]) * eimp) * 2
-            Field_theta += np.real(sphere.kron(t_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor
-            Field_phi += np.real(sphere.kron(s_part, self.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor 
-            Field_phi -= np.real(sphere.kron(t_part, self.dPlm[idx_, :]) * eimp) * 2
-
-        elif kwargs['kron'] == 'equatorial':
-            """
-            eimp = np.exp(1j *  m * (phi0 + phi))
-            
-            idx_ = self.idx[l, m]
-            Field_r += np.real(tools.kron(q_part, eimp) *
-                               self.Plm[idx_, :][0]) * factor
-            
-            Field_theta += np.real(tools.kron(s_part, eimp)) * self.dPlm[idx_, :][0] * 2
-            Field_theta += np.real(tools.kron(t_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0] * 2#factor
-            Field_phi += np.real(tools.kron(s_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0] * 2#factor
-            Field_phi -= np.real(tools.kron(t_part, eimp)) * self.dPlm[idx_, :][0] * 2
-            """
-            idx_ = self.idx[l, m]
-            
-            #Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) * q_part) * factor
-            Field_r[:, m] += self.Plm[idx_, :] * q_part
-
-            #Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part) * 2
-            Field_theta[:, m] += self.dPlm[idx_, :] * s_part
-            #Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * t_part) * 2#factor
-            Field_theta[:, m] += self.Plm_sin[idx_, :] * 1j * m * t_part
-            #Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * s_part) * 2#factor
-            Field_phi[:, m] += self.Plm_sin[idx_, :]* 1j * m * s_part
-            #Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part) * 2
-            Field_phi[:, m] -= self.dPlm[idx_, :] * t_part
-            
-        elif kwargs['kron'] == 'isogrid':
-            #eimp = np.exp(1j *  m * (phi0 + phi))
-            
-            idx_ = self.idx[l, m]
-            
-            #Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) * q_part) * factor
-            Field_r[:, m] += self.Plm[idx_, :] * q_part
-
-            #Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part) * 2
-            Field_theta[:, m] += self.dPlm[idx_, :] * s_part
-            #Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * t_part) * 2#factor
-            Field_theta[:, m] += self.Plm_sin[idx_, :] * 1j * m * t_part
-            #Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * s_part) * 2#factor
-            Field_phi[:, m] += self.Plm_sin[idx_, :]* 1j * m * s_part
-            #Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part) * 2
-            Field_phi[:, m] -= self.dPlm[idx_, :] * t_part
-            
-        else:
-            raise ValueError('Kron type not understood: '+kwargs['kron'])
-
-        pass
-                
-
+    # TODO: Leo port this to spectral.py  
     # The function compute_energy makes use of orthogonal energy norms
     # to compute the energy of a field
     def compute_energy(self, field_name='velocity'):
@@ -853,36 +534,17 @@ class PhysicalState(BaseState):
         BaseState.__init__(self, filename)#, geometry, file_type='QuICC')
         fin = self.fin
         # read the grid
-        """
-        if not self.isEPM:
-            for at in fin['mesh']:
-                setattr(self, at, fin['mesh'][at].value)
-            
-            # find the fields
-            self.fields = lambda:None
-            #temp = object()
-            for group in fin.keys():
-
-                for subg in fin[group]:
-
-                    # we check to import fields which are at least 2-dimensional tensors
-                    field = np.array(fin[group][subg])
-                    if len(field.shape)<2:
-                        continue
-
-                    # set attributes
-                    setattr(self.fields, subg, field)
-                 
-        else:
-        """
-        
         for at in fin['FSOuter/grid']:
-            setattr(self, at, fin['FSOuter/grid'][at].value)
+            setattr(self, at.replace(' ', '_'), fin['FSOuter/grid'][at][:])
             
         # find the fields
         self.fields = lambda:None
         #temp = object()
         for group in fin['FSOuter'].keys():
+            if group == 'Codensity':
+                field = np.array(fin['FSOuter'][group][:])
+                setattr(self.fields, group.lower(), field)
+                continue
 
             for subg in fin['FSOuter'][group]:
                 # we check to import fields which are at least 2-dimensional tensors
@@ -891,7 +553,9 @@ class PhysicalState(BaseState):
                     continue
 
                 # set attributes
-                setattr(self.fields, subg, field)
+                setattr(self.fields, subg.lower(), field)
+
+        fin.close()
 
 
     # define function for equatorial plane visualization from the visState0000.hdf5 file
@@ -915,14 +579,14 @@ class PhysicalState(BaseState):
             # select the 0 meridional plane value for 
             idx_phi0 = (self.grid_phi==0)
             
-            Field1 = np.mean(getattr(self.fields, fieldname+'_r')[:, :, idx_phi0], axis=2)
-            Field2 = np.mean(getattr(self.fields, fieldname+'_theta')[:, :, idx_phi0], axis=2)
-            Field3 = np.mean(getattr(self.fields, fieldname+'_phi')[:, :, idx_phi0], axis=2)
+            Field1 = np.mean(getattr(self.fields, fieldname+'r')[:, :, idx_phi0], axis=2)
+            Field2 = np.mean(getattr(self.fields, fieldname+'t')[:, :, idx_phi0], axis=2)
+            Field3 = np.mean(getattr(self.fields, fieldname+'p')[:, :, idx_phi0], axis=2)
         else:
             phi = self.grid_phi
-            Field1 = interp1d(phi, getattr(self.fields, fieldname+'_r'), axis=2)(phi)
-            Field2 = interp1d(phi, getattr(self.fields, fieldname+'_theta'), axis=2)(phi)
-            Field3 = interp1d(phi, getattr(self.fields, fieldname+'_phi'), axis=2)(phi)
+            Field1 = interp1d(phi, getattr(self.fields, fieldname+'r'), axis=2)(phi)
+            Field2 = interp1d(phi, getattr(self.fields, fieldname+'t'), axis=2)(phi)
+            Field3 = interp1d(phi, getattr(self.fields, fieldname+'p'), axis=2)(phi)
             
         return X, Y, [Field1, Field2, Field3]
 
@@ -954,149 +618,38 @@ class PhysicalState(BaseState):
         X = np.cos(pphi)*rr
         Y = np.sin(pphi)*rr
         
-        Field1 = np.mean(getattr(self.fields, fieldname+'_r')[:,idx_theta,:], axis=1)
-        Field2 = np.mean(getattr(self.fields, fieldname+'_theta')[:,idx_theta,:], axis=1)
-        Field3 = np.mean(getattr(self.fields, fieldname+'_phi')[:,idx_theta,:], axis=1)
+        Field1 = np.mean(getattr(self.fields, fieldname+'r')[:,idx_theta,:], axis=1)
+        Field2 = np.mean(getattr(self.fields, fieldname+'t')[:,idx_theta,:], axis=1)
+        Field3 = np.mean(getattr(self.fields, fieldname+'p')[:,idx_theta,:], axis=1)
 
         return X, Y, [Field1, Field2, Field3]
-        
-    # define function for equatorial plane visualization from the visState0000.hdf5 file
-    def makeIsoradiusSlice(self, r=None, fieldname = 'velocity'):
-        
-        # some parameters just in case
-        eta = self.parameters.rratio
-        ri = eta/(1-eta)
-        ro = 1/(1-eta)
-        a, b = .5, .5*(1+eta)/(1-eta)
 
-         # find the grid in radial and meridional direction
-        theta = self.grid_theta
-        phi = self.grid_phi
-        
-        TTheta, PPhi = np.meshgrid(theta, phi)
-        r_grid = self.grid_r
-        if r==None:
-            # select the 0 meridional plane value for
-            neq = int(len(r_grid)/2)
-            if len(r_grid) % 2 == 0:
-                idx_r = (r_grid == r_grid[neq-1]) | (r_grid == r_grid[neq])
-            else:
-                idx_theta = (theta_grid == theta_grid[neq])
+    def PointValue(file, geometry, field, Xvalue, Yvalue, Zvalue):
+        if geometry == 'shell' or geometry == 'sphere':
+            print('This is not finished yet!')
+            pass
+
+        elif geometry == 'cartesian':
+            my_state = SpectralState(file,geometry)
+            spectral_coeff = getattr(my_state.fields,field)
+            [nx , ny , nz ] = spectral_coeff.shape
+
+            spectral_coeff[:,0,:] = 2*spectral_coeff[:,0,:]
+            spectral_coeff_cc = spectral_coeff[:, :, :].real - 1j*spectral_coeff[:, :, :].imag
+            total = np.zeros((int(nx), int(ny*2 -1 ), int(nz)), dtype=complex)
             
-            Field1 = np.mean(getattr(self.fields, fieldname+'_r')[idx_r, :, :], axis=0)
-            Field2 = np.mean(getattr(self.fields, fieldname+'_theta')[idx_r, :, :], axis=0)
-            Field3 = np.mean(getattr(self.fields, fieldname+'_phi')[idx_r, :, :], axis=0)
-        else:
-
-            Field1 = interp1d(r_grid, getattr(self.fields, fieldname+'_r'), axis=0)(r)
-            Field2 = interp1d(r_grid, getattr(self.fields, fieldname+'_theta'), axis=0)(r)
-            Field3 = interp1d(r_grid, getattr(self.fields, fieldname+'_phi'), axis=0)(r)
-                    
-        return TTheta, PPhi, [Field1, Field2, Field3]
-
-# the function takes care of the looping over modes
-def makeEquatorialSlice(state, p=0, modeRes = (120,120) ):
-    #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
-    #    raise NotImplementedError('makeEquatorialSlice is not implemented for the geometry: '+self.geometry)
-    # generate indexer
-    # this generate the index lenght also
-    state.idx = state.idxlm()
-    ridx = {v: k for k, v in state.idx.items()}
-
-    #if modeRes == None:
-    #    modeRes=(self.specRes.L, self.specRes.M)
-    # generate grid
-    X, Y, r, phi = state.makeEquatorialGrid()
-    grid_r = r
-    grid_phi = phi
-    # pad the fields
-    dataT = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
-    dataT[:,:state.specRes.N] = state.fields.velocity_tor
-    dataP = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
-    dataP[:,:state.specRes.N] = state.fields.velocity_pol
-    
-    # prepare the output fields
-    FR = np.zeros((len(r), int(state.physRes.nPhi/2)+1), dtype = 'complex')
-    FTheta = np.zeros_like(FR)
-    FPhi = np.zeros_like(FR)
-    FieldOut = [FR, FTheta, FPhi]
+            for i in range(0,ny-1):
+                total[:,ny-1-i,:] = spectral_coeff_cc[:,i+1,:]            
             
-    # initialize the spherical harmonics
-    # only for the equatorial values
-    state.makeSphericalHarmonics(np.array([np.pi/2]))
+            total[:,(ny-1):,:] = spectral_coeff[:,:,:]
+            [nx2 , ny2 , nz2 ] =total.shape
 
-    for i in range(state.nModes):
-        # get the l and m of the index
-        l, m = ridx[i]
-        # statement to reduce the number of modes considered
-        #if l> modeRes[0] or m> modeRes[1]:
-        #    continue
-        #Core function to evaluate (l,m) modes summing onto FieldOut             
-        state.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, None, phi, kron='equatorial', phi0=p)
+            Proj_cheb = SpectralState.Cheb_eval(nz2, 1.0, 0, Zvalue)
+            Proj_fourier_x = sphere.fourier_eval(nx2, Xvalue)
+            Proj_fourier_y = sphere.fourier_eval(ny2, Yvalue)
 
-    field2 = []
-    for i, f in enumerate(FieldOut):
-        temp = f
-        if i > 0:
-            temp[0,:] *= 2.
-        f = np.fft.irfft(temp, axis=1)
-        f = f * len(f[0,:])
-        f = np.hstack([f,np.column_stack(f[:,0]).T])
-        field2.append(f)
-    FieldOut = field2
-    #return X, Y, field2
-    return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+            value1 = np.dot(total, Proj_cheb.T)
+            value2 = np.dot(value1, Proj_fourier_y.T)
+            value3 = np.dot(value2.T,Proj_fourier_x.T )
 
-def makeMeridionalSlice(state, p=0, modeRes = (120,120) ):
-    """
-    p: phi angle of meridional splice 
-    modeRes: resolution of output
-    the function takes care of the looping over modes
-    TODO: Nico add comments and change syntax   
-    """
-
-    #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
-    #    raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
-
-    # generate indexer
-    # this generate the index lenght also
-    state.idx = state.idxlm()
-    # returns (l,m) from index 
-    ridx = {v: k for k, v in state.idx.items()}
-
-    """
-    if modeRes == None:
-        modeRes=(self.specRes.L, self.specRes.M)
-    """
-    
-    # generate grid
-    # X, Y: meshgrid for plotting in cartesian coordinates
-    # r, theta: grid used for evaluation 
-    X, Y, r, theta = state.makeMeridionalGrid()
-    
-    # pad the fields to apply 3/2 rule 
-    dataT = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
-    dataT[:,:state.specRes.N] = state.fields.velocity_tor
-    dataP = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
-    dataP[:,:state.specRes.N] = state.fields.velocity_pol
-    
-    # prepare the output fields in radial, theta, and phi 
-    FR = np.zeros((len(r), len(theta)))
-    FTheta = np.zeros_like(FR)
-    FPhi = np.zeros_like(FR)
-    FieldOut = [FR, FTheta, FPhi]
-            
-    # initialize the spherical harmonics
-    state.makeSphericalHarmonics(theta)
-
-    for i in range(state.nModes):
-        
-        # get the l and m of the index
-        l, m = ridx[i]
-
-        # statement to redute the number of modes considered
-        #if l> modeRes[0] or m> modeRes[1]:
-        #continue
-        state.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, theta, None, kron='meridional', phi0=p)
-
-    return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+        return float(2*value3.real)
