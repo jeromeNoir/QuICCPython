@@ -110,9 +110,6 @@ def dlmb(L):
         #print(cst)
     return (D,d)
 
-def printS(string):
-    print(string)
-
 def computeAverageVorticity(state):
     f = h5py.File(state, 'r') #read state
     nR=f['/truncation/spectral/dim1D'].value+1

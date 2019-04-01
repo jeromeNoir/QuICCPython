@@ -116,6 +116,7 @@ class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
+
         #TODO: automatically select architecture for linux and OSX 
         #osx: '-lboost_math_tr1-mt'
         #linux: '-lboost_math_tr1'
