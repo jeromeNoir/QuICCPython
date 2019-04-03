@@ -1,3 +1,10 @@
+"""
+To install wrappers for pybind11 use
+- export QUICC='quicc-directory'
+- python3 -m pip install ./ 
+Author: leonardo.echeverria@erdw.ethz.ch
+"""
+
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
@@ -23,6 +30,13 @@ class get_pybind_include(object):
 
 env = os.environ.copy() #takes env variables
 
+string1 =env.get('QUICC_DIR', None)
+
+if string1 == None: 
+    print('Installing native Python')
+else:
+    print('Installing pybind11 accelerator')
+
 sources =    ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp',
                     'src/Base/Precision.cpp',
                     'src/PolynomialTransforms/WorlandPolynomial.cpp',
@@ -44,11 +58,16 @@ include_dirs=[# Path to pybind11 headers
 
 print('include:', include_dirs)
 
+#link = ['-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
+
+#core
 ext_modules = [
     Extension(
         'quicc_bind',
-        sources, include_dirs=include_dirs,
+        sources, 
+        include_dirs=include_dirs,
         language='c++'
+
     ),
 ]
 
@@ -90,13 +109,18 @@ class BuildExt(build_ext):
     }
 
     if sys.platform == 'darwin':
-        c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7', '-D QUICC_SMARTPTR_CXX0X', '-D QUICC_SHNORM_UNITY', '-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
+        c_opts['unix'] += ['-v', '-stdlib=libc++', '-mmacosx-version-min=10.7', '-D QUICC_SMARTPTR_CXX0X', '-D QUICC_SHNORM_UNITY']
     else:
-        c_opts['unix'] += [ '-D QUICC_SMARTPTR_CXX0X', '-D QUICC_SHNORM_UNITY', '-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
+        c_opts['unix'] += ['-v', '-D QUICC_SMARTPTR_CXX0X', '-D QUICC_SHNORM_UNITY']
 
     def build_extensions(self):
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
+
+        #TODO: automatically select architecture for linux and OSX 
+        #osx: '-lboost_math_tr1-mt'
+        #linux: '-lboost_math_tr1'
+        link = ['-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
         if ct == 'unix':
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
             opts.append(cpp_flag(self.compiler))
@@ -106,15 +130,19 @@ class BuildExt(build_ext):
             opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
         for ext in self.extensions:
             ext.extra_compile_args = opts
+            ext.extra_link_args = link
+        #print('extensions:', self.extensions[0].extra_compile_args)          
+        #print('extensions:', self.extensions[0].extra_link_args)                    
         build_ext.build_extensions(self)
 
+#Core
 setup(
     name='quicc_bind',
     version=__version__,
     author='Leonardo Echeveria Pazos',
     author_email='leonardo.echeverria@erdw.ethz.com',
     url='https://github.com/pybind/quicc_bind',
-    description='A test project using pybind11',
+    description='Adding pybind11 to accelerate polynomial evaluation for QuICC reader',
     long_description='',
     ext_modules=ext_modules,
     install_requires=['pybind11>=2.2'],

@@ -6,10 +6,11 @@ from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
 import sys, os
 env = os.environ.copy()
-sys.path.append(env['HOME']+'/workspace/QuICC/Python/')
-from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
+sys.path.append(env['HOME']+'/quicc-github/QuICC/Python/')
+#get it from crossover_master_release
+#from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
+import integrateWorland as wor 
 
-    
     def make1DGrid(self, gridType, specRes):
         """
         INPUT: 
@@ -62,7 +63,10 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             #TODO: Leo, check what the relation between physRes and
             # specRes this should be about 2*specRes Philippes thesis
             # 3/2 N + 3/4 L + 1
-            self.physRes.nR = specRes 
+            # e.g: N=10, L=10, nR = 29; N=10, L=20, nR = 36
+            # 3*(N+1)//2 + 1 + 3*(L+1)//4 + 1  + 3 = 29
+            # self.physRes.nR = specRes
+            self.physRes.nR = (3*(specRes.N+1))//2+1 + 3*(specRes.L+1)//4+1 + 3
             nr = self.physRes.nR
             grid = np.sqrt((np.cos(np.pi*(np.arange(0,2*nr)+0.5)/(2*nr)) + 1.0)/2.0)
         
@@ -89,7 +93,7 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             y = self.make1DGrid('Legendre', self.specRes.L)
 
         elif self.geometry == 'sphere':
-            x = self.make1DGrid('Worland', self.specRes.N)
+            x = self.make1DGrid('Worland', self.specRes)
             y = self.make1DGrid('Legendre', self.specRes.L)
 
         elif self.geometry == 'cartesian':
@@ -123,7 +127,7 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'sphere':
-            x = self.make1DGrid('Worland', self.specRes.N)
+            x = self.make1DGrid('Worland', self.specRes)
             y = self.make1DGrid('Fourier', self.specRes.M)
 
         elif self.geometry == 'cartesian':
@@ -328,7 +332,8 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
                     test[:,i] = np.ndarray.flatten(np.dot(total[:,:,i],PI.T))
 
                 padfield = np.zeros((int((nx+1)*3/2), int(nz*3/2)), dtype=complex)
-                padfield[:int((nx+1)/2)+1,  :nz] = test[:int((nx+1)/2)+1,,:]
+                #Leo: check with M
+                padfield[:int((nx+1)/2)+1,  :nz] = test[:int((nx+1)/2)+1,:]
                 padfield[-int(nx/2):, :nz] = test[-int(nx/2):,  :]
 
                 real_field = np.zeros((int((nx+1)*3/2), int(nz*3/2)),  dtype=complex)
@@ -472,6 +477,7 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             
             # compute the assoc legendre
             temp = tools.plm(self.specRes.L-1, m, x)
+            #temp = wor.plm(self.specRes.L-1, m, x) #Leo: this implementation doesn't work 
 
             # assign the Plm to storage
             for l in range(m, self.specRes.L):
@@ -511,11 +517,11 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             return self.Plm[self.idx[l, m], :]
         
 
-
-    
-
-    # the function takes care of the looping over modes
     def makeMeridionalSlice(self, p=0, modeRes = (120,120) ):
+        """
+        the function takes care of the looping over modes
+        TODO: Nico add comments and change syntax   
+        """
 
         if not (self.geometry == 'shell' or self.geometry == 'sphere'):
             raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
@@ -523,6 +529,7 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
         # generate indexer
         # this generate the index lenght also
         self.idx = self.idxlm()
+        # returns (l,m) from index 
         ridx = {v: k for k, v in self.idx.items()}
 
         """
@@ -531,15 +538,17 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
         """
         
         # generate grid
+        # X, Y: meshgrid for plotting in cartesian coordinates
+        # r, theta: grid used for evaluation 
         X, Y, r, theta = self.makeMeridionalGrid()
         
-        # pad the fields
+        # pad the fields to apply 3/2 rule 
         dataT = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
         dataT[:,:self.specRes.N] = self.fields.velocity_tor
         dataP = np.zeros((self.nModes, self.physRes.nR), dtype='complex')
         dataP[:,:self.specRes.N] = self.fields.velocity_pol
         
-        # prepare the output fields
+        # prepare the output fields in radial, theta, and phi 
         FR = np.zeros((len(r), len(theta)))
         FTheta = np.zeros_like(FR)
         FPhi = np.zeros_like(FR)
@@ -596,15 +605,13 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
         self.makeSphericalHarmonics(np.array([np.pi/2]))
 
         for i in range(self.nModes):
-            
             # get the l and m of the index
             l, m = ridx[i]
-
-            # statement to redute the number of modes considered
+            # statement to reduce the number of modes considered
             #if l> modeRes[0] or m> modeRes[1]:
             #    continue
-            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                  :], r, None, phi, kron='equatorial', phi0=p)
+            #Core function to evaluate (l,m) modes summing onto FieldOut             
+            self.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, None, phi, kron='equatorial', phi0=p)
 
         field2 = []
         for i, f in enumerate(FieldOut):
@@ -691,17 +698,30 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
         return {'theta': TTheta, 'phi': PPhi, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
 
     def evaluate_mode(self, l, m, *args, **kwargs):
-
+        """
+        evaluate (l,m) mode and return FieldOut
+        input: 
+        spectral coefficients: dataT, dataP, 
+        physical grid: r, theta, phi0
+        kron: 'meridional' or 'equatorial'
+        outpu: FieldOut
+        e.g:
+        evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i, :], r, theta, kron='meridional', phi0=p)
+        """
+        #print(l, m)
         # raise exception if wrong geometry
         if not (self.geometry == 'shell' or self.geometry == 'sphere'):
             raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
 
         # prepare the input data
+        #Evaluated fields 
         Field_r = args[0][0]
         Field_theta = args[0][1]
         Field_phi = args[0][2]
+        #spectral coefficients
         modeT = args[1]
         modeP = args[2]
+        #grid points 
         r = args[3]
         theta = args[4]
         phi = args[5]
@@ -736,28 +756,52 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
                 s_part = None
                 t_part = None
         
-        else: # hence either merdiional or equatorial
+        else: # hence either meridional or equatorial
             if self.geometry == 'shell':
                 # prepare the q_part
+                # q = l*(l+1) * Poloidal / r            
+                # idct: inverse discrete cosine transform
+                # type = 2: type of transform 
+                # q = Field_radial 
+                # prepare the q_part
+                # idct = \sum c_n * T_n(xj)
+
                 modeP_r = idct(modeP, type = 2)/r
                 q_part = modeP_r * l*(l+1)
                 
                 # prepare the s_part
+                # s_part = orthogonal to Field_radial and Field_Toroidal
+                # s_part = (Poloidal)/r + d(Poloidal)/dr = 1/r d(Poloidal)/dr
                 dP = np.zeros_like(modeP)
                 d_temp = cheb.chebder(modeP)
                 dP[:len(d_temp)] = d_temp
                 s_part = modeP_r + idct(dP, type = 2)/self.a
                 
                 # prepare the t_part
+                # t_part = Field_Toroidal                
                 t_part = idct(modeT, type = 2)
                 
             elif self.geometry == 'sphere':
-                #TODO: Leo
-                q_part = None
-                s_part = None
-                t_part = None
+                #TODO: Leo, Where do you get this???
+                #print('modeP:', modeP.shape, modeP) #32
+                #print('modeT:', modeT.shape, modeT) #32
+                #print('r:',r.shape, r) # 64
+                #print('specRes:',self.specRes)
+                modeP_r = np.zeros_like(r)
+                dP = np.zeros_like(r)
+                t_part = np.zeros_like(r)
+
+            for n in range(self.specRes.N):
+                modeP_r=modeP_r+modeP[n]*wor.W(n, l, r)/r
+                dP = dP+modeP[n]*wor.diffW(n, l, r)
+                t_part = t_part + modeT[n]*wor.W(n,l,r)
+
+            q_part =  modeP_r*l*(l+1)#same stuff
+            s_part = modeP_r + dP 
         
         # depending on the kron type it changes how 2d data are formed
+        # Mapping from qst to r,theta, phi 
+        # phi0: azimuthal angle of meridional plane. It's also the phase shift of the flow with respect to the mantle frame, 
         if kwargs['kron'] == 'meridional':
             eimp = np.exp(1j *  m * phi0)
             
@@ -836,9 +880,10 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
     # to compute the energy of a field
     def compute_energy(self, field_name='velocity'):
         # INPUT:
-        # field_name: string, specifies the field type (velocity, magnetic)
-        
+        # field_name: string, specifies the vector field type (velocity, magnetic) 
         # switch over different geometries
+        # potential: symmetric and antisymmetric
+
         if self.geometry == 'shell':
 
             # init the storage
@@ -846,9 +891,10 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             pol_energy = 0
 
             # precompute the radial tranform parameters
+            # r = a*x + b
             a, b = .5, .5 * (1 + self.parameters.rratio) / (1 - self.parameters.rratio)
 
-            # compute volume
+            # compute volume for scaling 
             ro = 1/(1-self.parameters.rratio)
             ri = self.parameters.rratio/(1-self.parameters.rratio)
             vol = 4/3*np.pi*(ro**3-ri**3)
@@ -856,22 +902,28 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             # generate idx indicer
             self.idx = self.idxlm()
 
-            # obtain the 2 fields
+            # obtain the 2 fields all modes 
             Tfield = getattr(self.fields, field_name + '_tor')
             Pfield = getattr(self.fields, field_name + '_pol')
 
-            # loop first over f
+            # loop first over modes
             for l in range(self.specRes.L):
 
                 for m in range(min(l+1, self.specRes.M) ):
 
-                    # compute factor
+                    # compute factor because we compute only m>=0
+                    # TODO: Nico 2 for m==0 and 1 for m>0?
                     factor = 2. if m==0 else 1.
 
-                    # obtain modes
+                    # obtain (l,m) modes
                     Tmode = Tfield[self.idx[l, m], :]
                     Pmode = Pfield[self.idx[l, m], :]
 
+                    #(\sqrt{l*(l+1)})^2: energy norm prefactor for Spherical Harmonics
+                    #ortho_tor(length, a, b, Field.real, Field.real) : computes the inner product (Field.real,Field.real)
+                    #t, q, s : energy
+                    # real and imag are done separately, 
+                    # it should be equivalent to compute inner product with complex conjugate 
                     tor_energy += factor * l*(l+1) *\
                     ortho_tor(len(Tmode), a, b, Tmode.real,
                               Tmode.real)
@@ -879,6 +931,7 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
                     ortho_tor(len(Tmode), a, b, Tmode.imag,
                               Tmode.imag)
 
+                    #(l*(l+1))^2: integral over r of 1/r \mathcal{L}^2 P 
                     pol_energy += factor * (l*(l+1))**2 *\
                     ortho_pol_q(len(Pmode), a, b, Pmode.real,
                                 Pmode.real)
@@ -899,8 +952,10 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
                     
 
     def compute_mode_product(self, spectral_state, m, field_name='velocity'):
-        
+        #TODO: Nico, add description 
         # switch over different geometries
+        # \int_V q m\dagger \cdot u dV 
+        # projection of velocity field onto a given mode with respect to a given mode
         if self.geometry == 'shell':
             
             # init the storage
@@ -982,10 +1037,4 @@ from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
             pol_product /= (2*vol)
         return tor_product + pol_product
             
-
-                    
-                    
-                    
-                    
-                
-                    
+ 

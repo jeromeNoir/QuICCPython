@@ -1,15 +1,15 @@
 """
 This module includes important functions to rotate an hdf5 state 
 and perform the integral of vorticity from the spectral velocity field
-autor: leonardo.echeverria@erdw.ethz.ch
 """
 import numpy as np
 import h5py
-import sys
-sys.path.append('/home/nicolol/workspace/QuICC/Python/')
+import sys, os
+env = os.environ.copy()
+sys.path.append(env['HOME'] + '/workspace/QuICC/Python/')
 from quicc.geometry.spherical import shell_radius
 from quicc.projection import shell
-import pybind11.QuICC as pybind
+import QuICC as pybind
 from shutil import copyfile
 
 # generate wigner matrix
@@ -110,9 +110,6 @@ def dlmb(L):
         #print(cst)
     return (D,d)
 
-def printS(string):
-    print(string)
-
 def computeAverageVorticity(state):
     f = h5py.File(state, 'r') #read state
     nR=f['/truncation/spectral/dim1D'].value+1
@@ -159,7 +156,8 @@ def rotateState(state, omega, field):
     LL=finout['/truncation/spectral/dim2D'].value
     MM=finout['/truncation/spectral/dim3D'].value
     NN=finout['/truncation/spectral/dim1D'].value
-
+    Ro = finout['/physical/ro'].value
+    
     #Toroidal Velocity
     #data=np.array(f[field].value)
     data=finout[field].value
@@ -171,7 +169,7 @@ def rotateState(state, omega, field):
     #divide by normalization of n(1,1) mode 
     #(-1) from condon-shortley phase
 
-    (alp, bta, gam) = computeEulerAngles(omega)
+    (alp, bta, gam) = computeEulerAngles(omega * Ro)
 
     #e(i*m*alpha) = cos(m*alpha) + i * sin(m*alpha)
     #calp = cos(m*alpha)
@@ -368,9 +366,9 @@ def rotate_state(state, omega, fields):
     LL=finout['/truncation/spectral/dim2D'].value 
     MM=finout['/truncation/spectral/dim3D'].value 
     NN=finout['/truncation/spectral/dim1D'].value 
-
+    Ro = finout['/physical/ro'].value
     # compute Euler angles
-    (alpha, beta, gamma) = computeEulerAngles(omega)
+    (alpha, beta, gamma) = computeEulerAngles(omega * Ro)
 
     # loop over the fields
     for field in fields:
@@ -433,7 +431,7 @@ def process_state(state):
     omega = computeAverageVorticity(state)
     
     # copy the state file ( rotations and subtractions of states are done in place
-    filename = 'working_state.hdf5'
+    filename = 'stateRotated.hdf5'
     copyfile(state, filename)
 
     # subtract average vorticity
@@ -442,9 +440,6 @@ def process_state(state):
     # to be rotated: '/velocity/velocity_tor', '/velocity/velocity_pol'
     fields = ['/velocity/velocity_tor', '/velocity/velocity_pol']
     rotate_state(filename, omega, fields)
-    
-    # for f in fields:
-    #     rotateState(filename, omega, f)
-
+        
     pass
     

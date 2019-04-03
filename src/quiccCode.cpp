@@ -14,7 +14,6 @@ void wnl( Eigen::Ref<QuICC::Matrix> op, int l, QuICC::Array igrid){
     QuICC::Matrix ipoly(op);
     QuICC::Polynomial::WorlandPolynomial::Wnl(mOp, ipoly, l, igrid);
     op = mOp;
-
 }
 
 //diff worland
@@ -254,7 +253,7 @@ void ZrotateFull( Eigen::Ref<QuICC::MatrixZ> QlmM, Eigen::Ref<QuICC::MatrixZ> Sl
 }
 
 
-PYBIND11_MODULE(quicc_bind, m) {
+PYBIND11_MODULE(QuICC, m) {
     m.def("wnl", &wnl);
     m.def("dwnl", &dwnl);
     m.def("drwnl", &drwnl);
@@ -269,3 +268,4 @@ PYBIND11_MODULE(quicc_bind, m) {
     m.def("ZrotateFull", &ZrotateFull);
 
 }
+
