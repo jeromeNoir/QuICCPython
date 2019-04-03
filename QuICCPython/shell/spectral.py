@@ -228,15 +228,18 @@ def makeSphericalHarmonics(spec_state, theta):
     for m in range(spec_state.specRes.M):
 
         # compute the assoc legendre
-        temp = tools.plm(spec_state.specRes.L-1, m, x)
-
+        temp1 = tools.plm(spec_state.specRes.L - 1, m, x)
+        temp2 = tools.dplm(spec_state.specRes.L - 1, m, x)
+        temp3 = tools.plm_sin(spec_state.specRes.L - 1, m, x)
         # assign the Plm to storage
         for l in range(m, spec_state.specRes.L):
-            spec_state.Plm[spec_state.idx[l, m], :] = temp[:, l-m]
+            spec_state.Plm[spec_state.idx[l, m], :] = temp1[:, l-m]
+            spec_state.dPlm[spec_state.idx[l, m], :] = temp2[:, l-m]
+            spec_state.Plm_sin[spec_state.idx[l, m], :] = temp3[:, l-m]
             pass
 
         pass
-
+    """
     # compute dPlm and Plm_sin
     for i in range(spec_state.nModes):
         l, m = ridx[i]
@@ -251,6 +254,7 @@ def makeSphericalHarmonics(spec_state, theta):
             spec_state.Plm_sin[i, :] = plm(spec_state, l, m)/(1-x**2)**.5
 
     pass
+    """
 
 # Lookup function to help the implementation of dPlm and Plm_sin 
 def plm(spec_state, l, m, x = None):
@@ -295,7 +299,9 @@ def getMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
 
     # initialize the spherical harmonics
     makeSphericalHarmonics(spec_state, theta)
-
+    eta = spec_state.parameters.rratio
+    a, b = .5, .5*(1+eta)/(1-eta)
+    x = (r - b)/a
     for i in range(spec_state.nModes):
 
         # get the l and m of the index
@@ -303,7 +309,7 @@ def getMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
 
         # evaluate mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                              :], r, theta, None, kron='meridional', phi0=p)
+                                                                     :], r, theta, None, kron='meridional', phi0=p, x = x)
 
     return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
 
@@ -337,6 +343,9 @@ def getEquatorialSlice(spec_state, phi0=0 ):
     # initialize the spherical harmonics
     # only for the equatorial values
     makeSphericalHarmonics(spec_state, np.array([np.pi/2]))
+    eta = spec_state.parameters.rratio
+    a, b = .5, .5*(1+eta)/(1-eta)
+    x = (r - b)/a
 
     for i in range(spec_state.nModes):
 
@@ -345,14 +354,15 @@ def getEquatorialSlice(spec_state, phi0=0 ):
 
         # evaluate the mode update
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                    :], r, None, phi, kron='equatorial', phi0=phi0)
+                                                                     :], r, None, phi, kron='equatorial', phi0=phi0, x=x)
 
     # carry out the Fourier Transform in phi direction
     field2 = []
     for i, f in enumerate(FieldOut):
         temp = f
-        if i > 1:
-            temp[0,:] *= 2.
+        
+        #if i > 0:
+        #    temp[:, 0] *= 2.
         f = np.fft.irfft(temp, axis=1)
         f = f * len(f[0,:])
         f = np.hstack([f,np.column_stack(f[:,0]).T])
@@ -362,8 +372,8 @@ def getEquatorialSlice(spec_state, phi0=0 ):
     return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
 
 # the function takes care of the looping over modes
-def getIsoradiusSlice(spec_state, r=None, phi0=0 ):
-
+def getIsoradiusSlice(spec_state, r=.5, phi0=0 ):
+    
     assert (spec_state.geometry == 'shell'), 'makeIsoradiusSlice is not implemented for the geometry: '+spec_state.geometry
 
     # generate indexer
@@ -371,15 +381,12 @@ def getIsoradiusSlice(spec_state, r=None, phi0=0 ):
     spec_state.idx = idxlm(spec_state)
     ridx = {v: k for k, v in spec_state.idx.items()}
 
-    """
-    if modeRes == None:
-        modeRes=(spec_state.specRes.L, spec_state.specRes.M)
-    """
-
     # generate grid
     TTheta, PPhi, theta, phi = makeIsoradiusGrid(spec_state)
     spec_state.grid_theta = theta
     spec_state.grid_phi = phi
+    eta = spec_state.parameters.rratio
+    
     # pad the fields
     dataT = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
     dataT[:,:spec_state.specRes.N] = spec_state.fields.velocity_tor
@@ -396,12 +403,9 @@ def getIsoradiusSlice(spec_state, r=None, phi0=0 ):
     FieldOut = [FR, FTheta, FPhi]
 
     # prepare the "collocation point"
-    if r == None:
-        x = 0
-        r = .5*(spec_state.eta+1)/(1-spec_state.eta)
-    else:
-        spec_state.a, spec_state.b = .5, .5 * (1+spec_state.eta)/(1-spec_state.eta)
-        x = (r - spec_state.b)/spec_state.a
+    spec_state.a, spec_state.b = .5, .5 * (1 + eta)/(1 - eta)
+    r += eta/(1-eta)
+    x = (r - spec_state.b)/spec_state.a
 
 
     # initialize the spherical harmonics
@@ -419,8 +423,8 @@ def getIsoradiusSlice(spec_state, r=None, phi0=0 ):
     field2 = []
     for i, f in enumerate(FieldOut):
         temp = f
-        if i > 0:
-            temp[:,0] *= 2.
+        #if i > 0:
+        #   temp[:,0] *= 2.
         f = np.fft.irfft(temp, axis=1)
         f = f * len(f[0,:])
         f = np.hstack([f,np.column_stack(f[:,0]).T])
@@ -449,7 +453,7 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
     # define factor
     factor = 1. if m==0 else 2.
 
-    if kwargs['kron'] == 'isogrid' or kwargs['kron'] == 'points':
+    if True:# kwargs['kron'] == 'isogrid' or kwargs['kron'] == 'points':
         x = kwargs['x']
         
         # assume that the mode is weighted like Philippe sets it
@@ -493,10 +497,10 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
         idx_ = spec_state.idx[l, m]
         Field_r += np.real(tools.kron(q_part, spec_state.Plm[idx_, :]) * eimp) * factor
 
-        Field_theta += np.real(tools.kron(s_part, spec_state.dPlm[idx_, :]) * eimp) * 2
-        Field_theta += np.real(tools.kron(t_part, spec_state.Plm_sin[idx_, :]) * eimp * 1j * m) * 2
-        Field_phi += np.real(tools.kron(s_part, spec_state.Plm_sin[idx_, :]) * eimp * 1j * m) * 2
-        Field_phi -= np.real(tools.kron(t_part, spec_state.dPlm[idx_, :]) * eimp) * 2
+        Field_theta += np.real(tools.kron(s_part, spec_state.dPlm[idx_, :]) * eimp) * factor #2
+        Field_theta += np.real(tools.kron(t_part, spec_state.Plm_sin[idx_, :]) * eimp * 1j * m) * factor# 2
+        Field_phi += np.real(tools.kron(s_part, spec_state.Plm_sin[idx_, :]) * eimp * 1j * m) * factor#2
+        Field_phi -= np.real(tools.kron(t_part, spec_state.dPlm[idx_, :]) * eimp) * factor#2
 
     elif kwargs['kron'] == 'points':
         eimp = np.exp(1j *  m * phi)
@@ -504,21 +508,21 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
         idx_ = spec_state.idx[l, m]
         Field_r += np.real(q_part * spec_state.Plm[idx_, :] * eimp) * factor
         
-        Field_theta += np.real(s_part * spec_state.dPlm[idx_, :] * eimp) * 2
-        Field_theta += np.real(t_part * spec_state.Plm_sin[idx_, :] * eimp * 1j * m) * 2
-        Field_phi += np.real(s_part * spec_state.Plm_sin[idx_, :] * eimp * 1j * m) * 2
-        Field_phi -= np.real(t_part * spec_state.dPlm[idx_, :] * eimp) * 2
+        Field_theta += np.real(s_part * spec_state.dPlm[idx_, :] * eimp) * factor #2
+        Field_theta += np.real(t_part * spec_state.Plm_sin[idx_, :] * eimp * 1j * m) * factor#2
+        Field_phi += np.real(s_part * spec_state.Plm_sin[idx_, :] * eimp * 1j * m) * factor#2
+        Field_phi -= np.real(t_part * spec_state.dPlm[idx_, :] * eimp) * factor#2
 
     elif kwargs['kron'] == 'equatorial':
         
         idx_ = spec_state.idx[l, m]
 
-        Field_r[:, m] += spec_state.Plm[idx_, :] * q_part
+        Field_r[:, m] += spec_state.Plm[idx_, :] * q_part 
 
-        Field_theta[:, m] += spec_state.dPlm[idx_, :] * s_part
-        Field_theta[:, m] += spec_state.Plm_sin[idx_, :] * 1j * m * t_part
-        Field_phi[:, m] += spec_state.Plm_sin[idx_, :]* 1j * m * s_part
-        Field_phi[:, m] -= spec_state.dPlm[idx_, :] * t_part
+        Field_theta[:, m] += spec_state.dPlm[idx_, :] * s_part 
+        Field_theta[:, m] += spec_state.Plm_sin[idx_, :] * 1j * m * t_part 
+        Field_phi[:, m] += spec_state.Plm_sin[idx_, :]* 1j * m * s_part 
+        Field_phi[:, m] -= spec_state.dPlm[idx_, :] * t_part 
 
     elif kwargs['kron'] == 'isogrid':
 
@@ -777,7 +781,7 @@ def dlmb(L):
         #print(cst)
     return (D,d)
 
-def computeUniformVorticity(spec_state, ri_ = None, ro_ = None):
+def computeUniformVorticity(spec_state, rmin = None, rmax = None):
     #f = h5py.File(state, 'r') #read state
     #nR=f['/truncation/spectral/dim1D'].value+1
     nR = spec_state.specRes.N
@@ -797,14 +801,14 @@ def computeUniformVorticity(spec_state, ri_ = None, ro_ = None):
     ri = ro* rratio
     E = spec_state.parameters.ekman
     delta = E**.5*10
-    if ri_ == None:
+    if rmin == None:
         riBoundary = ri+delta
     else:
-        riBoundary = ri_
-    if ro_ == None:
+        riBoundary = rmin + ri
+    if rmax == None:
         roBoundary = ro-delta
     else:
-        roBoundary = ro_
+        roBoundary = rmax
 
     volume = (roBoundary**5 - riBoundary**5 )/ (5. * (3. / (4 *np.pi))**.5)
 

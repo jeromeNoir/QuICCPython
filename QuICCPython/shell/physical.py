@@ -70,36 +70,25 @@ def getEquatorialSlice(phys_state, fieldname = 'velocity'):
     return result
 
 # define function for equatorial plane visualization from the visState0000.hdf5 file
-def getIsoradiusSlice(phys_state, r=None, fieldname = 'velocity'):
+def getIsoradiusSlice(phys_state, r=.5, fieldname = 'velocity'):
 
     # some parameters just in case
     eta = phys_state.parameters.rratio
     ri = eta/(1-eta)
     ro = 1/(1-eta)
     a, b = .5, .5*(1+eta)/(1-eta)
-
+    r += ri
      # find the grid in radial and meridional direction
     theta = phys_state.grid_theta
     phi = phys_state.grid_phi
 
     TTheta, PPhi = np.meshgrid(theta, phi)
     r_grid = phys_state.grid_r
-    if r==None:
-        # select the 0 meridional plane value for
-        neq = int(len(r_grid)/2)
-        if len(r_grid) % 2 == 0:
-            idx_r = (r_grid == r_grid[neq-1]) | (r_grid == r_grid[neq])
-        else:
-            idx_theta = (theta_grid == theta_grid[neq])
 
-        Field1 = np.mean(getattr(phys_state.fields, fieldname+'_r')[idx_r, :, :], axis=0)
-        Field2 = np.mean(getattr(phys_state.fields, fieldname+'_theta')[idx_r, :, :], axis=0)
-        Field3 = np.mean(getattr(phys_state.fields, fieldname+'_phi')[idx_r, :, :], axis=0)
-    else:
-
-        Field1 = interp1d(r_grid, getattr(phys_state.fields, fieldname+'_r'), axis=0)(r)
-        Field2 = interp1d(r_grid, getattr(phys_state.fields, fieldname+'_theta'), axis=0)(r)
-        Field3 = interp1d(r_grid, getattr(phys_state.fields, fieldname+'_phi'), axis=0)(r)
+    # evaluate the fields
+    Field1 = interp1d(r_grid, getattr(phys_state.fields, fieldname+'_r'), axis=0)(r)
+    Field2 = interp1d(r_grid, getattr(phys_state.fields, fieldname+'_theta'), axis=0)(r)
+    Field3 = interp1d(r_grid, getattr(phys_state.fields, fieldname+'_phi'), axis=0)(r)
 
     result = {'theta': TTheta, 'phi': PPhi, 'U_r': Field1, 'U_theta': Field2, 'U_phi': Field3}
     return result

@@ -69,6 +69,44 @@ def plm(maxl, m, x):
         #return SingletonPlm.get_dict(SingletonPlm, x)[m][:, l-m]
         return mat
 
+
+def dplm(maxl, m, x):
+
+    if maxl < m or m < 0 or maxl < 0:
+        raise RuntimeError('Problems between l and m')
+    
+    else:
+
+        # Compute the normalized associated legendre polynomial projection matrix
+        mat = np.zeros((maxl-m+1,len(x))).T
+
+        # call the c++ function
+        quicc_bind.dplm(mat, m, x)
+
+        #SingletonPlm.get_dict(SingletonPlm, x)[m] = mat
+
+        #return SingletonPlm.get_dict(SingletonPlm, x)[m][:, l-m]
+        return mat
+
+
+def plm_sin(maxl, m, x):
+
+    if maxl < m or m < 0 or maxl < 0:
+        raise RuntimeError('Problems between l and m')
+    
+    else:
+
+        # Compute the normalized associated legendre polynomial projection matrix
+        mat = np.zeros((maxl-m+1,len(x))).T
+
+        # call the c++ function
+        quicc_bind.plm_sin(mat, m, x)
+
+        #SingletonPlm.get_dict(SingletonPlm, x)[m] = mat
+
+        #return SingletonPlm.get_dict(SingletonPlm, x)[m][:, l-m]
+        return mat
+
 #Jacobi Polynomial from recursions
 def JacobiPoly(NN, a, b, x): 
     y = np.zeros((NN+1,len(x)))
