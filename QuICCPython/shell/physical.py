@@ -49,7 +49,6 @@ def getEquatorialSlice(phys_state, fieldname = 'velocity'):
     neq = int(len(theta_grid)/2)
     if len(theta_grid) % 2 == 0:
         idx_theta = (theta_grid == theta_grid[neq-1]) | (theta_grid == theta_grid[neq])
-        print(theta_grid[neq-1]-np.pi/2, theta_grid[neq]-np.pi/2)
     else:
         idx_theta = (theta_grid == theta_grid[neq])
 

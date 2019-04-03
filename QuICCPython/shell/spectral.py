@@ -1,11 +1,12 @@
 import numpy as np
+import quicc_bind
 from QuICCPython import tools
 from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
 from QuICCPython.shell.energy_tools import ortho_pol_q, ortho_pol_s, ortho_tor
 from QuICCPython.shell.quicc_tools import shell_radius
 from QuICCPython.shell.quicc_tools import shell
-import quicc_bind
+
 
 def make1DGrid(spec_state, gridType, specRes):
     """
@@ -350,7 +351,7 @@ def getEquatorialSlice(spec_state, phi0=0 ):
     field2 = []
     for i, f in enumerate(FieldOut):
         temp = f
-        if i > 0:
+        if i > 1:
             temp[0,:] *= 2.
         f = np.fft.irfft(temp, axis=1)
         f = f * len(f[0,:])
