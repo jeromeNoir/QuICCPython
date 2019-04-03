@@ -5,7 +5,8 @@ from numpy.polynomial import chebyshev as cheb
 class BaseState:
     
     def __init__(self, filename, geometry, file_type='QuICC'):
-        
+
+        self.filename = filename
         # PhysicalState('state0000.hdf5',geometry='Sphere'
         fin = h5py.File(filename, 'r')
         self.fin = fin
@@ -57,6 +58,9 @@ class PhysicalState(BaseState):
 
                 # set attributes
                 setattr(self.fields, subg, field)
+
+        # close the HDF5 file once finished
+        self.fin.close()
                     
 
 class SpectralState(BaseState):
@@ -101,6 +105,9 @@ class SpectralState(BaseState):
                 setattr(self.fields, subg, field)
                 
         self.readResolution()
+        
+        # close the HDF5 file once finished
+        self.fin.close()
         
     def readResolution(self):
         """
