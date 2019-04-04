@@ -81,22 +81,22 @@ def getVerticalSliceInX(data, field, level):
     for i in range(0,nz):
         test[:,i] = np.ndarray.flatten(np.dot(PI,spectral_coeff[:,:,i]))
         
-        padfield = np.zeros( (int((ny+1)*3/2), int(nz*3/2)  ), dtype=complex)
-        padfield[ :ny, :nz] = test[:,:]
-        
-        
-        real_field = np.zeros((int((ny+1)*3/2), int(nz*3/2)),  dtype=complex)
-        real_field2 = np.zeros((int(ny*3), int(nz*3/2)),  dtype=complex)
-        
-        for i in range(0, int((ny)*3/2)):
-            real_field[i,:] = idct(padfield[i,:])
-        
-        for i in range(0,int(nz*3/2)):
-            real_field2[:,i] = np.fft.irfft(real_field[:,i])
-        
-        [ny2 , nz2] = real_field2.shape
-        
-        real_field2 = real_field2*ny2
+    padfield = np.zeros( (int((ny+1)*3/2), int(nz*3/2)  ), dtype=complex)
+    padfield[ :ny, :nz] = test[:,:]
+    
+    
+    real_field = np.zeros((int((ny+1)*3/2), int(nz*3/2)),  dtype=complex)
+    real_field2 = np.zeros((int(ny*3), int(nz*3/2)),  dtype=complex)
+    
+    for i in range(0, int((ny)*3/2)):
+        real_field[i,:] = idct(padfield[i,:])
+    
+    for i in range(0,int(nz*3/2)):
+        real_field2[:,i] = np.fft.irfft(real_field[:,i])
+    
+    [ny2 , nz2] = real_field2.shape
+    
+    real_field2 = real_field2*ny2
 
     return real_field2
 
@@ -113,7 +113,7 @@ def getVerticalSliceInY(data, field, level):
     total = np.zeros((nx, int(ny*2) -1, nz), dtype=complex)
     
     for i in range(0,ny-1):
-        total[:,ny-1-i,:] = spectral_coeff_cc[:,i+1,:]
+        total[:,2*ny-2-i,:] = spectral_coeff_cc[:,i+1,:]
     
     total[:,:(ny),:] = spectral_coeff[:,:,:]
     
@@ -136,8 +136,8 @@ def getVerticalSliceInY(data, field, level):
     for i in range(0,int(nz*3/2)):
         real_field2[:,i] = np.fft.ifft(real_field[:,i])
         
-        [nx2 , nz2] = real_field2.shape
-        real_field2 = real_field2*nx2*2
+    [nx2 , nz2] = real_field2.shape
+    real_field2 = real_field2*nx2
 
     return real_field2
 
@@ -170,6 +170,7 @@ def getHorizontalSlice(data,field, level):
     
     return real_field
 
+
 def computeFourierEval(nr, r):
     # evaluates the projection matrix for the fourier basis
     
@@ -192,3 +193,15 @@ def computeChebEval(nr, a, b, r):
     coeffs[0,0]=1.0
 
     return np.mat(cheb.chebval(xx, coeffs).transpose())
+
+
+def makeChebyshevGrid(Res):
+    """
+    INPUT:
+    specRes: int; spectral resolution to generate grid
+    OUTPUT:
+    grid: numpy.array; associated grid in physical space
+    """
+    grid=np.cos((2*np.arange(1,Res+1)-1)*np.pi/(2*Res))
+        
+    return grid       
