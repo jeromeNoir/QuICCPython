@@ -1,8 +1,10 @@
 import numpy as np
 import quicc_bind
+from copy import copy
 from QuICCPython import tools
 from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
+from numpy.polynomial.legendre import leggauss
 from QuICCPython.shell.energy_tools import ortho_pol_q, ortho_pol_s, ortho_tor
 from QuICCPython.shell.quicc_tools import shell_radius
 from QuICCPython.shell.quicc_tools import shell
@@ -136,7 +138,7 @@ def makeIsoradiusGrid(spec_state):
     return X, Y, x, y    
 
     
-def makePointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
+def getPointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
 
     # assume that the argument are r=x theta=y and phi=z
     assert(len(Xvalue) == len(Yvalue))
@@ -178,7 +180,7 @@ def makePointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
                                                               :], r, theta, phi, kron='points', x=x)
 
-    return_value =  {'r': r, 'theta': theta, 'phi': phi, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+    return_value =  {'r': r, 'theta': theta, 'phi': phi, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
 
     return return_value
 
@@ -239,22 +241,6 @@ def makeSphericalHarmonics(spec_state, theta):
             pass
 
         pass
-    """
-    # compute dPlm and Plm_sin
-    for i in range(spec_state.nModes):
-        l, m = ridx[i]
-        spec_state.dPlm[i, :] = -.5 * (((l+m)*(l-m+1))**0.5 * plm(spec_state, l, m-1) -
-                                 ((l-m)*(l+m+1))**.5 * plm(spec_state, l, m+1, x) )
-
-        if m!=0:
-            spec_state.Plm_sin[i, :] = -.5/m * (((l-m)*(l-m-1))**.5 *
-                                          plm(spec_state, l-1, m+1, x) + ((l+m)*(l+m-1))**.5 *
-                                        plm(spec_state, l-1, m-1)) * ((2*l+1)/(2*l-1))**.5
-        else:
-            spec_state.Plm_sin[i, :] = plm(spec_state, l, m)/(1-x**2)**.5
-
-    pass
-    """
 
 # Lookup function to help the implementation of dPlm and Plm_sin 
 def plm(spec_state, l, m, x = None):
@@ -273,7 +259,7 @@ def plm(spec_state, l, m, x = None):
     
 
 # the function takes care of the looping over modes
-def getMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
+def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
 
     assert (spec_state.geometry == 'shell'), 'makeMeridionalSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -286,11 +272,9 @@ def getMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
     X, Y, r, theta = makeMeridionalGrid(spec_state)
 
     # pad the fields
-    dataT = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
-    dataT[:,:spec_state.specRes.N] = spec_state.fields.velocity_tor
-    dataP = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
-    dataP[:,:spec_state.specRes.N] = spec_state.fields.velocity_pol
-
+    dataT = spec_state.fields.velocity_tor
+    dataP = spec_state.fields.velocity_pol
+    
     # prepare the output fields
     FR = np.zeros((len(r), len(theta)))
     FTheta = np.zeros_like(FR)
@@ -299,9 +283,9 @@ def getMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
 
     # initialize the spherical harmonics
     makeSphericalHarmonics(spec_state, theta)
-    eta = spec_state.parameters.rratio
-    a, b = .5, .5*(1+eta)/(1-eta)
-    x = (r - b)/a
+    #eta = spec_state.parameters.rratio
+    #a, b = .5, .5*(1+eta)/(1-eta)
+    #x = (r - b)/a
     for i in range(spec_state.nModes):
 
         # get the l and m of the index
@@ -309,13 +293,13 @@ def getMeridionalSlice(spec_state, p=0, modeRes = (120,120) ):
 
         # evaluate mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, theta, None, kron='meridional', phi0=p, x = x)
+                                                                     :], r, theta, None, kron='meridional', phi0=phi0, field = field)
 
-    return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+    return {'x': X, 'y': Y, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
 
 
 # the function takes care of the looping over modes
-def getEquatorialSlice(spec_state, phi0=0 ):
+def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
 
     assert (spec_state.geometry == 'shell'), 'makeEquatorialSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -328,12 +312,11 @@ def getEquatorialSlice(spec_state, phi0=0 ):
     X, Y, r, phi = makeEquatorialGrid(spec_state)
     spec_state.grid_r = r
     spec_state.grid_phi = phi
+    
     # pad the fields
-    dataT = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
-    dataT[:,:spec_state.specRes.N] = spec_state.fields.velocity_tor
-    dataP = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
-    dataP[:,:spec_state.specRes.N] = spec_state.fields.velocity_pol
-
+    dataT = spec_state.fields.velocity_tor
+    dataP = spec_state.fields.velocity_pol
+    
     # prepare the output fields
     FR = np.zeros((len(r), int(spec_state.physRes.nPhi/2)+1), dtype = 'complex')
     FTheta = np.zeros_like(FR)
@@ -344,8 +327,8 @@ def getEquatorialSlice(spec_state, phi0=0 ):
     # only for the equatorial values
     makeSphericalHarmonics(spec_state, np.array([np.pi/2]))
     eta = spec_state.parameters.rratio
-    a, b = .5, .5*(1+eta)/(1-eta)
-    x = (r - b)/a
+    spec_state.a, spec_state.b = .5, .5*(1+eta)/(1-eta)
+    
 
     for i in range(spec_state.nModes):
 
@@ -354,25 +337,23 @@ def getEquatorialSlice(spec_state, phi0=0 ):
 
         # evaluate the mode update
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, None, phi, kron='equatorial', phi0=phi0, x=x)
+                                                                     :], r, None, phi, kron='equatorial', phi0=phi0, field = field)
 
     # carry out the Fourier Transform in phi direction
     field2 = []
     for i, f in enumerate(FieldOut):
         temp = f
         
-        #if i > 0:
-        #    temp[:, 0] *= 2.
         f = np.fft.irfft(temp, axis=1)
         f = f * len(f[0,:])
         f = np.hstack([f,np.column_stack(f[:,0]).T])
         field2.append(f)
     FieldOut = field2
     
-    return {'x': X, 'y': Y, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+    return {'x': X, 'y': Y, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
 
 # the function takes care of the looping over modes
-def getIsoradiusSlice(spec_state, r=.5, phi0=0 ):
+def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity'):
     
     assert (spec_state.geometry == 'shell'), 'makeIsoradiusSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -388,26 +369,21 @@ def getIsoradiusSlice(spec_state, r=.5, phi0=0 ):
     eta = spec_state.parameters.rratio
     
     # pad the fields
-    dataT = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
-    dataT[:,:spec_state.specRes.N] = spec_state.fields.velocity_tor
-    dataP = np.zeros((spec_state.nModes, spec_state.physRes.nR), dtype='complex')
-    dataP[:,:spec_state.specRes.N] = spec_state.fields.velocity_pol
-
-
+    dataT = spec_state.fields.velocity_tor
+    dataP = spec_state.fields.velocity_pol
+    
     # prepare the output fields
-    #FR = np.zeros((len(theta), len(phi)))
-    # attempt the Fourier tranform approach
+    # use the Fourier tranform approach
     FR = np.zeros((len(theta), int(spec_state.physRes.nPhi/2)+1), dtype = 'complex')
     FTheta = np.zeros_like(FR)
     FPhi = np.zeros_like(FR)
     FieldOut = [FR, FTheta, FPhi]
 
-    # prepare the "collocation point"
+    # prepare the point to evaluate the radial functions
     spec_state.a, spec_state.b = .5, .5 * (1 + eta)/(1 - eta)
     r += eta/(1-eta)
     x = (r - spec_state.b)/spec_state.a
-
-
+    
     # initialize the spherical harmonics
     makeSphericalHarmonics(spec_state, theta)
 
@@ -418,77 +394,82 @@ def getIsoradiusSlice(spec_state, r=.5, phi0=0 ):
 
         # update the field for the current mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, theta, phi, kron='isogrid', phi0=phi0, x=x)
+                                                                     :], r, theta, phi, kron='isogrid', phi0=phi0, x = x, field = field)
 
     field2 = []
     for i, f in enumerate(FieldOut):
         temp = f
-        #if i > 0:
-        #   temp[:,0] *= 2.
+        
         f = np.fft.irfft(temp, axis=1)
         f = f * len(f[0,:])
         f = np.hstack([f,np.column_stack(f[:,0]).T])
         field2.append(f)
 
     FieldOut = field2
-    return {'theta': TTheta, 'phi': PPhi, 'U_r': FieldOut[0], 'U_theta': FieldOut[1], 'U_phi': FieldOut[2]}
+    return {'theta': TTheta, 'phi': PPhi, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
 
 def evaluate_mode(spec_state, l, m, *args, **kwargs):
 
     # raise exception if wrong geometry
     assert (spec_state.geometry == 'shell'), 'evaluate_mode is being used for the wrong geometry: '+spec_state.geometry
 
+    
+    
     # prepare the input data
     Field_r = args[0][0]
     Field_theta = args[0][1]
     Field_phi = args[0][2]
-    modeT = args[1]
-    modeP = args[2]
+    modeT = copy(args[1])
+    modeP = copy(args[2])
     r = args[3]
     theta = args[4]
     phi = args[5]
-    phi0 = kwargs['phi0']
-
+    phi0 = kwargs.get('phi0', 0.)
+    field = kwargs['field']
 
     # define factor
     factor = 1. if m==0 else 2.
-
-    if True:# kwargs['kron'] == 'isogrid' or kwargs['kron'] == 'points':
-        x = kwargs['x']
         
-        # assume that the mode is weighted like Philippe sets it
-        modeP[1:] *= 2.
-        modeT[1:] *= 2.
+    x = kwargs.get('x', None)
+    if x == None:
+        x = (r - spec_state.b)/spec_state.a
+        
+    # assume that the mode is weighted like Philippe sets it
+    modeP[1:] *= 2.
+    modeT[1:] *= 2.
 
+    if field == 'velocity' or field == 'magnetic':
         # assume a QST field
         # prepare the q_part
         modeP_r = cheb.chebval(x, modeP)/r
         q_part = modeP_r * l*(l+1)
-
+        
         # prepare the s_part
         dP = np.zeros_like(modeP)
         d_temp = cheb.chebder(modeP)
         dP[:len(d_temp)] = d_temp
         s_part = modeP_r + cheb.chebval(x, dP)/spec_state.a
-
+        
         # prepare the t_part
         t_part = cheb.chebval(x, modeT)
 
-        
-    else: # hence either merdiional or equatorial
-
+    elif field == 'vorticity' or field == 'current':
+        # assume a QST field
         # prepare the q_part
-        modeP_r = idct(modeP, type = 2)/r
-        q_part = modeP_r * l*(l+1)
+        modeT_r = cheb.chebval(x, modeT)/r
+        q_part = modeT_r * l*(l+1)
 
         # prepare the s_part
-        dP = np.zeros_like(modeP)
-        d_temp = cheb.chebder(modeP)
-        dP[:len(d_temp)] = d_temp
-        s_part = modeP_r + idct(dP, type = 2)/spec_state.a
+        dT = cheb.chebder(modeT)
+        s_part = modeT_r + cheb.chebval(x, dT)/spec_state.a
 
         # prepare the t_part
-        t_part = idct(modeT, type = 2)
+        dP = cheb.chebder(modeP)
+        d2P = cheb.chebder(dP)
+        
+        t_part = -(cheb.chebval(x, d2P)/spec_state.a**2 \
+                   + 2*cheb.chebval(x, dP)/spec_state.a/r \
+                   - l*(l+1) * cheb.chebval(x, modeP)/r**2)
         
     # depending on the kron type it changes how 2d data are formed
     if kwargs['kron'] == 'meridional':
@@ -539,10 +520,11 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
         raise ValueError('Kron type not understood: '+kwargs['kron'])
 
     pass
-                
+field_spectral = {'velocity': 'velocity', 'vorticity': 'velocity', 'magnetic': 'magnetic', 'current': 'magnetic'}
+field_operation = {'velocity': 'simple', 'vorticity': 'curl', 'magnetic': 'simple', 'current': 'curl'}
 # The function compute_energy makes use of orthogonal energy norms
 # to compute the energy of a field
-def computeEnergy(spec_state, field_name='velocity'):
+def computeEnergy(spec_state, field='velocity', rmin = 0., rmax = 1.):
     # INPUT:
     # field_name: string, specifies the field type (velocity, magnetic)
 
@@ -556,14 +538,35 @@ def computeEnergy(spec_state, field_name='velocity'):
     # compute volume
     ro = 1/(1-spec_state.parameters.rratio)
     ri = spec_state.parameters.rratio/(1-spec_state.parameters.rratio)
-    vol = 4/3*np.pi*(ro**3-ri**3)
+    rmin += ri
+    rmax += ri
+    vol = 4/3*np.pi*(rmax**3-rmin**3)
+
+    # compute the "limits of integration"
+    xmin = (rmin - b)/a
+    xmax = (rmax - b)/a
 
     # generate idx indicer
     spec_state.idx = idxlm(spec_state)
-
+    
     # obtain the 2 fields
-    Tfield = getattr(spec_state.fields, field_name + '_tor')
-    Pfield = getattr(spec_state.fields, field_name + '_pol')
+    if field_operation[field] == 'simple':
+        
+        Tfield = getattr(spec_state.fields, field_spectral[field] + '_tor')
+        Pfield = getattr(spec_state.fields, field_spectral[field] + '_pol')
+        
+    elif field_operation[field] == 'curl':
+
+        Tfield = getattr(spec_state.fields, field_spectral[field] + '_pol')
+        Pfield = getattr(spec_state.fields, field_spectral[field] + '_tor')
+
+    else:
+        raise NotImplementedError('Type of curling operation not implemented')
+        
+    # precompute the integral matrix
+    nr = Tfield.shape[1]
+    bc = {0: 0, 'cr':1}
+    I1 = shell_radius.i1(nr + 1, a, b, bc)
 
     # loop first over f
     for l in range(spec_state.specRes.L):
@@ -579,24 +582,24 @@ def computeEnergy(spec_state, field_name='velocity'):
 
             tor_energy += factor * l*(l+1) *\
             ortho_tor(len(Tmode), a, b, Tmode.real,
-                      Tmode.real)
+                      Tmode.real, xmin = xmin, xmax = xmax, I1 = I1)
             tor_energy += factor * l*(l+1)*\
             ortho_tor(len(Tmode), a, b, Tmode.imag,
-                      Tmode.imag)
+                      Tmode.imag, xmin = xmin, xmax = xmax, I1 = I1)
 
             pol_energy += factor * (l*(l+1))**2 *\
             ortho_pol_q(len(Pmode), a, b, Pmode.real,
-                        Pmode.real)
+                        Pmode.real, xmin = xmin, xmax = xmax, I1 = I1)
             pol_energy += factor * (l*(l+1))**2 *\
             ortho_pol_q(len(Pmode), a, b, Pmode.imag,
-                        Pmode.imag)
+                        Pmode.imag, xmin = xmin, xmax = xmax, I1 = I1)
 
             pol_energy += factor *  l*(l+1) *\
             ortho_pol_s(len(Pmode), a, b, Pmode.real,
-                        Pmode.real)
+                        Pmode.real, xmin = xmin, xmax = xmax, I1 = I1)
             pol_energy += factor *  l*(l+1) *\
             ortho_pol_s(len(Pmode), a, b, Pmode.imag,
-                        Pmode.imag)
+                        Pmode.imag, xmin = xmin, xmax = xmax, I1 = I1)
 
     tor_energy /= (2*vol)
     pol_energy /= (2*vol)
@@ -1260,92 +1263,55 @@ class Integrator():
 
         return
 
+def getZIntegrator(filename):
+    zInt = Integrator()
+    zInt.load(integrator)
+    return zInt
 
-
-# define the dot function where A is real and b is complex
-# avoid the casting of A into complex ==> slow
-def dot(A, b):
-    # not faster for small matrices
-
-    assert(A.dtype =='float')
-    assert(b.dtype == 'complex')
-    return np.dot(A,b.real) + np.dot(A,b.imag)*1j
-
-
-def computeZintegral(spec_state, zInt):
-    """
-    returns the z-integral of vorticity and the flow up to 
-    a max spherical harmonic order Mmax and Worland Polynomial (Nmax)
-    vort_int=computeZintegral(state, vortz_tor, vortz_pol, ur_pol, uphi_tor, uphi_pol, (Nmax, Lmax, Mmax, N_s), w, grid_s)
-    """
+def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax = None, Nmax = None):
     
+    # read the state resolution
     LL = spec_state.specRes.L
     MM = spec_state.specRes.M
     NN = spec_state.specRes.N
+
+    # import variables from state
     E = spec_state.parameters.ekman
     dataP = spec_state.fields.velocity_pol
-    dataT = spec_state.fiedls.velocity_tor
+    dataT = spec_state.fields.velocity_tor
     eta = spec_state.parameters.rratio
 
     # compute the diffeomorfism parameters between Tchebyshev and radius space
     a = .5
     b = .5*(1+eta)/(1-eta)
 
-    # compute boundary layer
-    #d = 10.*E**.5
-    #riBoundary = eta/(1-eta)+d
-    #roBoundary = 1/(1-eta)-d
+    # decide wether to load an integrator from memory
+    if integrator == None:
 
-    # TODO: decide if the one needs to import the resolution from an argument
-    # compute the outside  tangent cylinder part
-    #NsPoints = 20 # NsPoints is the number of points int the radius of the gap
+        # if no integrator is specified, construct one on the spot
+        if Lmax == None:
+            Lmax = LL
+        if Mmax == None:
+            Mmax = MM
+        if Nmax == None:
+            Nmax = NN
 
+        Nmax = min(Nmax, NN)
+        Lmax = min(Lmax, LL)
+        Mmax = min(Mmax, MM)
+        zInt = Integrator((nS, Nmax, Lmax, Mmax))
+        zInt.generateGrid(spec_state)
+
+    else:
+
+        # if integrator string is give, load an integrator
+        zInt = getIntegrator(integrator)
+        # assume the grid is already written
+        
     NsPoints, Nmax, Lmax, Mmax = zInt.res
-    # there are points also on top of the tangent cylinder
+    print(zInt.res)
 
-    # build the cylindrical radial grid
-    #s = np.linspace(0, roBoundary, 2 * NsPoints + 1)[1::2]
-    #s1 = s[s>=riBoundary]
-    #s2 = s[s<riBoundary]
-    # compute the outside  tangent cylinder part
-    #ss1, no = np.meshgrid(s1, np.ones(2 * NsPoints))
-    #fs1 = (roBoundary ** 2 - s1 ** 2) ** .5
-    #x, w = leggauss(NsPoints * 2)
-    #no, zz1 = np.meshgrid(fs1, x)
-    #no, ww1 = np.meshgrid(fs1, w)
-    #zz1 *= fs1
-
-
-    # compute the inside of the tangent cylinder
-    #ss2, no = np.meshgrid(s2, np.ones(2 * NsPoints))
-    #fs2 = ((roBoundary ** 2 - s2 ** 2) ** .5 - (riBoundary ** 2 - s2 ** 2) ** .5) / 2
-    #x, w = leggauss(NsPoints)
-    #w *= .5
-    #no, zz2 = np.meshgrid(fs2, x)
-    #no, ww2 = np.meshgrid(fs2, w)
-    #zz2 *= fs2
-    #means = ((roBoundary ** 2 - s2 ** 2) ** .5 + (riBoundary ** 2 - s2 ** 2) ** .5) / 2
-    #zz2 += means
-    #zz2 = np.vstack((zz2, -zz2))
-    #ww2 = np.vstack((ww2, ww2))
-
-    # combine the 2 grids together
-    #ss = np.hstack((ss2, ss1))
-    #zz = np.hstack((zz2, zz1))
-    #ww = np.hstack((ww2, ww1))
-
-    # prepare the grid for tchebyshev polynomials
-    #ttheta = np.arctan2(ss, zz)
-    #rr = (ss**2+zz**2)**.5
-    #xx = (rr - b)/a
-    #xx_th = np.cos(ttheta)
-    #ccos_theta = xx_th
-    #ssin_theta = np.sin(ttheta)
-
-    # prepare the division weight
-    #fs = np.hstack([fs2*2, fs1]) * 2
-
-    zInt.generateGrid(state)
+    
     ss = zInt.ss
     s = ss[0, :]
     zz = zInt.zz
@@ -1361,23 +1327,9 @@ def computeZintegral(spec_state, zInt):
     # edit: now Ns == NsPoints
 
     # generate the dictionary that maps the l,m to idx
-    idx = idxlm(LL, MM)
-    #idxM = idxlm(Lmax,Mmax)
+    idx = idxlm(spec_state)
 
-    #Transform into complex data
-    #dataT=dataT[:,:,0]+dataT[:,:,1]*1j
-    #dataP=dataP[:,:,0]+dataP[:,:,1]*1j
-    
-    #main idea compute for each m the integral 
-    #Int(f(s,z)dz) = sum(weight*vort_z(s,z)) = f(s)
-    #vort_z function that returns the component of the z-vorticity
-
-    #for id_s in range(Ns):
-
-    #x = xx[:, id_s]
-    #w = ww[:, id_s]
-    #r = rr[:, id_s]
-    #theta = ttheta[:, id_s]
+    # prepare the reshape for the entire grid
     x = np.reshape(xx, (-1))
     w = np.reshape(ww, (-1))
     r = np.reshape(rr, (-1))
@@ -1388,69 +1340,66 @@ def computeZintegral(spec_state, zInt):
     xtheta = np.reshape(xx_th, (-1))
     
     #Allocating memory for output
-    vort_int = np.zeros((len(x), Mmax), dtype=complex)
-    Ur_int = np.zeros_like(vort_int)
-    Uth_int = np.zeros_like(vort_int)
-    Uphi_int = np.zeros_like(vort_int)
-    Us_int = np.zeros_like(vort_int)
-    Uz_int = np.zeros_like(vort_int)
-    H_int = np.zeros_like(vort_int)
+    vortZ_int = np.zeros((len(x), Mmax), dtype=complex)
+    uR_int = np.zeros_like(vortZ_int)
+    uTh_int = np.zeros_like(vortZ_int)
+    uPhi_int = np.zeros_like(vortZ_int)
+    uS_int = np.zeros_like(vortZ_int)
+    uZ_int = np.zeros_like(vortZ_int)
+    H_int = np.zeros_like(vortZ_int)
 
-    # compute the radial matrices
-    #Tn  = shell.proj_radial(Nmax, a, b, x) # evaluate the Tn
-    #dTndr = shell.proj_dradial_dr(Nmax, a, b, x)  # evaluate 1/r d/dr(r Tn)
-    #Tn_r = shell.proj_radial_r(Nmax, a, b, x)  # evaluate 1/r Tn
-    
-    # produce the mapping for the tri-curl part
-    #Tn_r2 = shell.proj_radial_r2(Nmax, a, b, x) # evaluate 1/r**2 Tn
-    #d2Tndr2 = shell.proj_lapl(Nmax, a, b, x) # evaluate 1/r**2 dr r**2 dr
-    
-    
-    for l in range(0, min(LL, Lmax) ):
-        for m in range(0, min(l+1, MM, Mmax) ):
+    """
+    old syntax
+    for l in range(0, min(Lmax) ):
+        for m in range(0, min(l+1, Mmax) ):
+    """
+    for m in range(Mmax):
+
+        # precompute the mode in storage
+        plm_storage = tools.plm(Lmax, m, xtheta)
+        dplm_storage = tools.dplm(Lmax, m, xtheta)
+        plm_sin_storage = tools.plm_sin(Lmax, m, xtheta)
+
+        # take into account the factor for the fourier transform
+        factor = 1. if m==0 else 2.
+
+        for l in range(m, Lmax):
             
-            # the computation is carried out over a vertical grid
-            # assume that u_r, u_theta and u_phi are vectors
-            # compute the theta evaluations
-            plm = spherical.lplm(Lmax, l, m, xtheta)
-            dplm = spherical.dplm(Lmax, l, m, xtheta)
-            plm_sin = spherical.lplm_sin(Lmax, l, m, xtheta)
+            plm = plm_storage[:, l - m]
+            dplm = dplm_storage[:, l - m]
+            plm_sin = plm_sin_storage[:, l-m]
             
             # store mode nicely
-            modeP = dataP[idx[l, m], :Nmax]
-            modeT = dataT[idx[l, m], :Nmax]
+            modeP = copy(dataP[idx[l, m], :Nmax])
+            modeT = copy(dataT[idx[l, m], :Nmax])
+            
             # use the DCT weighting
             modeP[1:] *= 2.
             modeT[1:] *= 2.
             
             # compute the transformed radial part
-            #ur_part = l*(l+1)*dot(Tn_r, dataP[idx[l, m], :Nmax])
             P_r = cheb.chebval(x, modeP)/r
             ur_part = l*(l+1)*P_r
-            #upol_part = dot(dTndr, dataP[idx[l, m], :Nmax])
             dmodeP = cheb.chebder(modeP)
             tempP = cheb.chebval(x, dmodeP)/a
             upol_part = P_r + tempP
-            #utor_part = dot(Tn, dataT[idx[l, m], :Nmax])
             utor_part = cheb.chebval(x, modeT)
             
             T_r = cheb.chebval(x, modeT)/r
-            #omegar_part = l*(l+1)*dot(Tn_r, dataT[idx[l, m], :Nmax])
+        
             omegar_part = l*(l+1)*T_r
-            #omegator_part = dot(dTndr, dataT[idx[l, m], :Nmax])
             dmodeT = cheb.chebder(modeT)
             omegator_part = T_r + cheb.chebval(x, dmodeT)/a
-            #omegapol_part = -( dot(d2Tndr2, dataP[idx[l, m], :Nmax]) - l*(l+1)*dot(Tn_r2, dataP[idx[l, m], :Nmax]) )
             ddmodeP = cheb.chebder(dmodeP)
             omegapol_part = -(cheb.chebval(x, ddmodeP)/a**2 + 2*tempP/r - l*(l+1)/r * P_r )
             
             # compute the r-coordinate components
-            u_r = ur_part * plm
-            u_theta = dplm * upol_part + 1j * m * plm_sin * utor_part
-            u_phi = 1j * m * plm_sin * upol_part - dplm * utor_part
-            omega_r = omegar_part * plm
-            omega_theta = dplm * omegator_part + 1j * m * plm_sin * omegapol_part
-            omega_phi = 1j * m * plm_sin * omegator_part - dplm * omegapol_part
+            u_r = ur_part * plm * factor
+            u_theta = dplm * upol_part + 1j * m * plm_sin * utor_part * factor
+            u_phi = 1j * m * plm_sin * upol_part - dplm * utor_part * factor
+            omega_r = omegar_part * plm * factor
+            omega_theta = dplm * omegator_part + 1j * m * plm_sin * omegapol_part * factor
+            omega_phi = 1j * m * plm_sin * omegator_part - dplm * omegapol_part * factor
             
             # convert in cylindrical coordinate components
             u_z = u_r * cos_theta - u_theta * sin_theta
@@ -1458,45 +1407,33 @@ def computeZintegral(spec_state, zInt):
             omega_z = omega_r * cos_theta - omega_theta * sin_theta
             #omega_s = omega_r * sin_theta + omega_theta * cos_theta
             
-            # For real data:
-            #vort_z = zInt.vortz_tor[id_s, n, idxM[l, m], :] * dataP[idx[l, m], :] \
-                #         + zInt.vortz_pol[id_s, n, idxM[l, m], :] * dataT[idx[l, m], :]
-            # u_r = zInt.ur_pol[id_s, n, idxM[l,m], :] * dataP[idx[l,m], n]
-            #u_th = zInt.uth_tor[id_s, n, idxM[l,m], :] * dataT[idx[l,m], n] \
-                #        + zInt.uth_pol[id_s, n, idxM[l,m], :] * dataP[idx[l,m], n]
-            #u_phi = zInt.uphi_tor[id_s, n, idxM[l, m], :] * dataT[idx[l, m], n] \
-                #        + zInt.uphi_pol[id_s, n, idxM[l, m], :] * dataP[idx[l, m], n]
-            #u_s = zInt.us_tor[id_s, n, idxM[l, m], :] * dataT[idx[l, m], n] \
-                #      + zInt.us_pol[id_s, n, idxM[l, m], :] * dataP[idx[l, m], n]
-            #u_z = zInt.uz_tor[id_s, n, idxM[l,m], :] * dataT[idx[l,m], n] \
-                #      + zInt.uz_pol[id_s, n, idxM[l,m], :] * dataP[idx[l,m], n]
-            
-            # don't forget to include the factor sqrt(1-s^2) to compute the integral
-            # For real data:
-            # Integrate
-            vort_int[:, m] += w * omega_z #/ fs[id_s]
+            # weight the computed fields with the associated quadrature weight
+            vortZ_int[:, m] += w * omega_z #/ fs[id_s]
             # Nicolo: modified the weight to fs
-            #Ur_int[:, m] += w * u_r #/ fs[id_s]
-            #Uth_int[:, m] += w * u_th #/ fs[id_s]
-            Uphi_int[:, m] += w * u_phi #/ fs[id_s]
-            Us_int[:, m] += w * u_s #/ fs[id_s]
-            Uz_int[:, m] += w * u_z #/ fs[id_s]
+            #uR_int[:, m] += w * u_r #/ fs[id_s]
+            #uTh_int[:, m] += w * u_th #/ fs[id_s]
+            uPhi_int[:, m] += w * u_phi #/ fs[id_s]
+            uS_int[:, m] += w * u_s #/ fs[id_s]
+            uZ_int[:, m] += w * u_z #/ fs[id_s]
             #H_int[:, m] += w * u_z * vort_z #/ fs[id_s]
 
-    vort_temp = np.reshape(vort_int, (xx.shape[0], xx.shape[1], Mmax) )
-    vort_int = np.sum(vort_temp, axis=0).T
-    #Ur_temp =  np.reshape(Ur_int, (xx.shape[0], xx.shape[1], Mmax) )
-    #Ur_int = np.sum(Ur_temp, axis=0)
-    #Uth_temp =  np.reshape(Uth_int, (xx.shape[0], xx.shape[1], Mmax) )
-    #Uth_int = np.sum(Uth_temp, axis=0)
-    Uphi_temp =  np.reshape(Uphi_int, (xx.shape[0], xx.shape[1], Mmax) )
-    Uphi_int = np.sum(Uphi_temp, axis=0).T
-    Us_temp =  np.reshape(Us_int, (xx.shape[0], xx.shape[1], Mmax) )
-    Us_int = np.sum(Us_temp, axis=0).T
-    Uz_temp =  np.reshape(Uz_int, (xx.shape[0], xx.shape[1], Mmax) )
-    Uz_int = np.sum(Uz_temp, axis=0).T
+    # perform the integration:
+    # this happens over 2 steps, first reshape the data, then
+    # sum over the z axis
+    vortZ_temp = np.reshape(vortZ_int, (xx.shape[0], xx.shape[1], Mmax) )
+    vortZ_int = np.sum(vortZ_temp, axis=0).T
+    #uR_temp =  np.reshape(uR_int, (xx.shape[0], xx.shape[1], Mmax) )
+    #uR_int = np.sum(uR_temp, axis=0)
+    #uTh_temp =  np.reshape(uTh_int, (xx.shape[0], xx.shape[1], Mmax) )
+    #uTh_int = np.sum(uTh_temp, axis=0)
+    uPhi_temp =  np.reshape(uPhi_int, (xx.shape[0], xx.shape[1], Mmax) )
+    uPhi_int = np.sum(uPhi_temp, axis=0).T
+    uS_temp =  np.reshape(uS_int, (xx.shape[0], xx.shape[1], Mmax) )
+    uS_int = np.sum(uS_temp, axis=0).T
+    uZ_temp =  np.reshape(uZ_int, (xx.shape[0], xx.shape[1], Mmax) )
+    uZ_int = np.sum(uZ_temp, axis=0).T
     #H_temp =  np.reshape(H_int, (xx.shape[0], xx.shape[1], Mmax) )
     #H_int = np.sum(H_temp, axis=0)
 
-    result = {'s': s, 'm': np.arange(Mmax), 'Omega_z': vort_int, 'U_phi': Uphi_int, 'U_s': Us_int, 'U_z':Uz_int}
+    result = {'s': s, 'm': np.arange(Mmax), 'vortZ': vortZ_int, 'uPhi': uPhi_int, 'uS': uS_int, 'uZ':uS_int}
     return result

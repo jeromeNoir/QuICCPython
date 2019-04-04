@@ -246,3 +246,13 @@ def diffLegM(l, m, x):
     #return norm*((1.0+l-m)*p_mat[:,l+1-m] - (l+1.0)*x*p_mat[:,l-m])
     return (normLp1*(1.0+l-m)*p_mat[:,l+1-m] - norm*(l+1.0)*x*p_mat[:,l-m])
     #return (1.0+l-m)*legSchmidtM(l, m, x) - (l+1.0)*x*legSchmidtM(l, m, x)
+
+
+# define the dot function where A is real and b is complex
+# avoid the casting of A into complex ==> slow
+def dot(A, b):
+    # not faster for small matrices
+
+    assert(A.dtype =='float')
+    assert(b.dtype == 'complex')
+    return np.dot(A,b.real) + np.dot(A,b.imag)*1j
