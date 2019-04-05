@@ -25,8 +25,8 @@ def computeRealFields(spectral_result, filter=[]):
     yy = np.sin(pphi) * ss
 
     # store the grid
-    result['xx'] = xx
-    result['yy'] = yy
+    result['x'] = xx
+    result['y'] = yy
     result['phi'] = pphi
     result['s'] = ss
 
@@ -63,8 +63,8 @@ def streamplot(real_data):
     s = real_data['s'][0, :]   
     phi = real_data['phi'][:, 0]
 
-    uu = real_data['U_s']
-    vv = real_data['U_phi']
+    uu = real_data['uS']
+    vv = real_data['uPhi']
     speed = (uu**2 + vv**2)**.5
     ss, pphi = np.meshgrid(s, phi)
     xx = ss * np.cos(pphi)

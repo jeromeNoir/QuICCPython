@@ -5,7 +5,8 @@ from numpy.polynomial import chebyshev as cheb
 class BaseState:
     
     def __init__(self, filename, geometry, file_type='QuICC'):
-        
+
+        self.filename = filename
         # PhysicalState('state0000.hdf5',geometry='Sphere'
         fin = h5py.File(filename, 'r')
         self.fin = fin
@@ -28,7 +29,28 @@ class BaseState:
         if(self.geometry not in list(['cartesian', 'shell', 'sphere'])):
             raise RuntimeError("Only Cartesian, Shell and Sphere geometries are currently supported for QuICC generated files.")
         # geometry so far is
-    pass
+        pass
+
+    def __deepcopy__(self, result, state):
+        from copy import copy, deepcopy
+        
+        # does the filename need to be copied?
+
+        # copy geometry
+        result.geometry = copy(self.geometry)
+        
+        # copy parameters
+        result.parameters = lambda :None
+        
+        for param in vars(self.parameters):
+            setattr(result.parameters, param, copy(getattr(self.parameters, param)))
+
+        # copy fields
+        result.fields = lambda:None
+        for field in vars(self.fields):
+            setattr(result.fields, field, copy(getattr(self.fields, field)))
+    
+        return result
 
 
 class PhysicalState(BaseState):
@@ -57,6 +79,16 @@ class PhysicalState(BaseState):
 
                 # set attributes
                 setattr(self.fields, subg, field)
+
+        # close the HDF5 file once finished
+        self.fin.close()
+
+    def __deepcopy__(self, state):
+        #return type(self)(BaseState.__deepcopy__(self))
+        from copy import copy
+        result = copy(self)
+        
+        return BaseState.__deepcopy__(self, result, state)
                     
 
 class SpectralState(BaseState):
@@ -101,6 +133,22 @@ class SpectralState(BaseState):
                 setattr(self.fields, subg, field)
                 
         self.readResolution()
+        
+        # close the HDF5 file once finished
+        self.fin.close()
+
+    def __deepcopy__(self, state):
+        from copy import copy
+        
+        result = copy(self)
+        result = BaseState.__deepcopy__(self, result, state)
+
+        # copy the spectral resolution
+        result.specRes = lambda:None
+        for k in vars(self.specRes):
+            setattr(result.specRes, k, copy(getattr(self.specRes, k)))
+
+        return result
         
     def readResolution(self):
         """
