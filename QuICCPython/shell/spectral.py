@@ -520,6 +520,9 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
         raise ValueError('Kron type not understood: '+kwargs['kron'])
 
     pass
+
+# define the following dictionaries for the convertion of field names
+# to tor/pol fields and the correct operator
 field_spectral = {'velocity': 'velocity', 'vorticity': 'velocity', 'magnetic': 'magnetic', 'current': 'magnetic'}
 field_operation = {'velocity': 'simple', 'vorticity': 'curl', 'magnetic': 'simple', 'current': 'curl'}
 # The function compute_energy makes use of orthogonal energy norms
@@ -574,7 +577,7 @@ def computeEnergy(spec_state, field='velocity', rmin = 0., rmax = 1.):
         for m in range(min(l+1, spec_state.specRes.M) ):
 
             # compute factor
-            factor = 2. if m==0 else 1.
+            factor = 1. if m==0 else 2.
 
             # obtain modes
             Tmode = Tfield[spec_state.idx[l, m], :]
@@ -582,10 +585,12 @@ def computeEnergy(spec_state, field='velocity', rmin = 0., rmax = 1.):
 
             tor_energy += factor * l*(l+1) *\
             ortho_tor(len(Tmode), a, b, Tmode.real,
-                      Tmode.real, xmin = xmin, xmax = xmax, I1 = I1)
+                      Tmode.real, xmin = xmin, xmax = xmax, I1 = I1,
+                      operation = field_operation[field], l = l)
             tor_energy += factor * l*(l+1)*\
             ortho_tor(len(Tmode), a, b, Tmode.imag,
-                      Tmode.imag, xmin = xmin, xmax = xmax, I1 = I1)
+                      Tmode.imag, xmin = xmin, xmax = xmax, I1 = I1,
+                      operation = field_operation[field], l = l)
 
             pol_energy += factor * (l*(l+1))**2 *\
             ortho_pol_q(len(Pmode), a, b, Pmode.real,
@@ -601,8 +606,13 @@ def computeEnergy(spec_state, field='velocity', rmin = 0., rmax = 1.):
             ortho_pol_s(len(Pmode), a, b, Pmode.imag,
                         Pmode.imag, xmin = xmin, xmax = xmax, I1 = I1)
 
-    tor_energy /= (2*vol)
-    pol_energy /= (2*vol)
+    if field_operation[field] == 'curl':
+        swap = tor_energy
+        tor_energy = pol_energy
+        pol_energy = swap
+    
+    tor_energy /= vol
+    pol_energy /= vol
     return tor_energy + pol_energy, tor_energy, pol_energy
 
 def computeModeProduct(spec_state, spectral_state, m, field_name = 'velocity'):
@@ -1055,7 +1065,7 @@ def subtractUniformVorticity(spec_state, omega):
     """
     pass
 
-def alignAlongFluid(spec_state, omega):
+def alignAlongFluid(state, omega):
 
     #finout = h5py.File(state, 'r+')
 
@@ -1063,6 +1073,11 @@ def alignAlongFluid(spec_state, omega):
     #MM=finout['/truncation/spectral/dim3D'].value 
     #NN=finout['/truncation/spectral/dim1D'].value 
     #Ro = finout['/physical/ro'].value
+
+    # make a copy of
+    from copy import deepcopy
+    spec_state = deepcopy(state)
+    
     LL = spec_state.specRes.L - 1
     MM = spec_state.specRes.M - 1
     NN = spec_state.specRes.N - 1
@@ -1103,7 +1118,7 @@ def alignAlongFluid(spec_state, omega):
         """
         setattr(spec_state.fields, field, Qlm)
         
-    pass
+    return spec_state
     
 def computeEulerAngles(omega):
     # omega is in the mantle frame
@@ -1269,6 +1284,8 @@ def getZIntegrator(filename):
     return zInt
 
 def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax = None, Nmax = None):
+
+    assert field in ['uPhi', 'uS', 'vortZ', 'uZ'], field+' not possible as a field option for computeZIntegral'
     
     # read the state resolution
     LL = spec_state.specRes.L
@@ -1310,7 +1327,6 @@ def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax
         
     NsPoints, Nmax, Lmax, Mmax = zInt.res
     print(zInt.res)
-
     
     ss = zInt.ss
     s = ss[0, :]
@@ -1340,13 +1356,21 @@ def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax
     xtheta = np.reshape(xx_th, (-1))
     
     #Allocating memory for output
-    vortZ_int = np.zeros((len(x), Mmax), dtype=complex)
-    uR_int = np.zeros_like(vortZ_int)
-    uTh_int = np.zeros_like(vortZ_int)
-    uPhi_int = np.zeros_like(vortZ_int)
-    uS_int = np.zeros_like(vortZ_int)
-    uZ_int = np.zeros_like(vortZ_int)
-    H_int = np.zeros_like(vortZ_int)
+    if field == 'vortZ':
+        vortZ_int = np.zeros((len(x), Mmax), dtype=complex)
+    
+    #uR_int = np.zeros_like(vortZ_int)
+    #uTh_int = np.zeros_like(vortZ_int)
+    if field == 'uPhi':
+        uPhi_int = np.zeros((len(x), Mmax), dtype=complex)
+    
+    if field == 'uS':
+        uS_int = np.zeros((len(x), Mmax), dtype=complex)
+    
+    if field == 'uZ':
+        uZ_int = np.zeros((len(x), Mmax), dtype=complex)
+    
+    #H_int = np.zeros_like(vortZ_int)
 
     """
     old syntax
@@ -1379,61 +1403,90 @@ def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax
             
             # compute the transformed radial part
             P_r = cheb.chebval(x, modeP)/r
-            ur_part = l*(l+1)*P_r
             dmodeP = cheb.chebder(modeP)
             tempP = cheb.chebval(x, dmodeP)/a
-            upol_part = P_r + tempP
-            utor_part = cheb.chebval(x, modeT)
             
-            T_r = cheb.chebval(x, modeT)/r
-        
-            omegar_part = l*(l+1)*T_r
-            dmodeT = cheb.chebder(modeT)
-            omegator_part = T_r + cheb.chebval(x, dmodeT)/a
-            ddmodeP = cheb.chebder(dmodeP)
-            omegapol_part = -(cheb.chebval(x, ddmodeP)/a**2 + 2*tempP/r - l*(l+1)/r * P_r )
+            if field == 'uS' or field == 'uPhi' or field == 'uZ':
+                ur_part = l*(l+1)*P_r    
+                upol_part = P_r + tempP
+                utor_part = cheb.chebval(x, modeT)
+
+            if field == 'vortZ':
+                T_r = cheb.chebval(x, modeT)/r
+
+                omegar_part = l*(l+1)*T_r
+                dmodeT = cheb.chebder(modeT)
+                omegator_part = T_r + cheb.chebval(x, dmodeT)/a
+                ddmodeP = cheb.chebder(dmodeP)
+                omegapol_part = -(cheb.chebval(x, ddmodeP)/a**2 + 2*tempP/r - l*(l+1)/r * P_r )
             
             # compute the r-coordinate components
-            u_r = ur_part * plm * factor
-            u_theta = dplm * upol_part + 1j * m * plm_sin * utor_part * factor
-            u_phi = 1j * m * plm_sin * upol_part - dplm * utor_part * factor
-            omega_r = omegar_part * plm * factor
-            omega_theta = dplm * omegator_part + 1j * m * plm_sin * omegapol_part * factor
-            omega_phi = 1j * m * plm_sin * omegator_part - dplm * omegapol_part * factor
+            if field == 'uS' or field == 'uZ':
+                u_r = ur_part * plm * factor
+                u_theta = dplm * upol_part + 1j * m * plm_sin * utor_part * factor
+            
+            if field == 'uPhi':
+                u_phi = 1j * m * plm_sin * upol_part - dplm * utor_part * factor
+
+            if field == 'vortZ':
+                omega_r = omegar_part * plm * factor
+                omega_theta = dplm * omegator_part + 1j * m * plm_sin * omegapol_part * factor
+            #omega_phi = 1j * m * plm_sin * omegator_part - dplm * omegapol_part * factor
             
             # convert in cylindrical coordinate components
-            u_z = u_r * cos_theta - u_theta * sin_theta
-            u_s = u_r * sin_theta + u_theta * cos_theta
-            omega_z = omega_r * cos_theta - omega_theta * sin_theta
+            if field == 'uZ':
+                u_z = u_r * cos_theta - u_theta * sin_theta
+
+            if field == 'uS':
+                u_s = u_r * sin_theta + u_theta * cos_theta
+            if field == 'vortZ':
+                omega_z = omega_r * cos_theta - omega_theta * sin_theta
             #omega_s = omega_r * sin_theta + omega_theta * cos_theta
             
             # weight the computed fields with the associated quadrature weight
-            vortZ_int[:, m] += w * omega_z #/ fs[id_s]
+            if field == 'vortZ':
+                vortZ_int[:, m] += w * omega_z #/ fs[id_s]
             # Nicolo: modified the weight to fs
             #uR_int[:, m] += w * u_r #/ fs[id_s]
             #uTh_int[:, m] += w * u_th #/ fs[id_s]
-            uPhi_int[:, m] += w * u_phi #/ fs[id_s]
-            uS_int[:, m] += w * u_s #/ fs[id_s]
-            uZ_int[:, m] += w * u_z #/ fs[id_s]
+            if field == 'uPhi':
+                uPhi_int[:, m] += w * u_phi #/ fs[id_s]
+
+            if field == 'uS':
+                uS_int[:, m] += w * u_s #/ fs[id_s]
+
+            if field == 'uZ':
+                uZ_int[:, m] += w * u_z #/ fs[id_s]
             #H_int[:, m] += w * u_z * vort_z #/ fs[id_s]
 
     # perform the integration:
     # this happens over 2 steps, first reshape the data, then
     # sum over the z axis
-    vortZ_temp = np.reshape(vortZ_int, (xx.shape[0], xx.shape[1], Mmax) )
-    vortZ_int = np.sum(vortZ_temp, axis=0).T
+    if field == 'vortZ':
+        vortZ_temp = np.reshape(vortZ_int, (xx.shape[0], xx.shape[1], Mmax) )
+        vortZ_int = np.sum(vortZ_temp, axis=0).T
+        FField = vortZ_int
     #uR_temp =  np.reshape(uR_int, (xx.shape[0], xx.shape[1], Mmax) )
     #uR_int = np.sum(uR_temp, axis=0)
     #uTh_temp =  np.reshape(uTh_int, (xx.shape[0], xx.shape[1], Mmax) )
     #uTh_int = np.sum(uTh_temp, axis=0)
-    uPhi_temp =  np.reshape(uPhi_int, (xx.shape[0], xx.shape[1], Mmax) )
-    uPhi_int = np.sum(uPhi_temp, axis=0).T
-    uS_temp =  np.reshape(uS_int, (xx.shape[0], xx.shape[1], Mmax) )
-    uS_int = np.sum(uS_temp, axis=0).T
-    uZ_temp =  np.reshape(uZ_int, (xx.shape[0], xx.shape[1], Mmax) )
-    uZ_int = np.sum(uZ_temp, axis=0).T
+    if field == 'uPhi':
+        uPhi_temp =  np.reshape(uPhi_int, (xx.shape[0], xx.shape[1], Mmax) )
+        uPhi_int = np.sum(uPhi_temp, axis=0).T
+        FField = uPhi_int
+
+    if field == 'uS':
+        uS_temp =  np.reshape(uS_int, (xx.shape[0], xx.shape[1], Mmax) )
+        uS_int = np.sum(uS_temp, axis=0).T
+        FField = uS_int
+
+    if field == 'uZ':
+        uZ_temp =  np.reshape(uZ_int, (xx.shape[0], xx.shape[1], Mmax) )
+        uZ_int = np.sum(uZ_temp, axis=0).T
+        FField = uZ_int
     #H_temp =  np.reshape(H_int, (xx.shape[0], xx.shape[1], Mmax) )
     #H_int = np.sum(H_temp, axis=0)
 
-    result = {'s': s, 'm': np.arange(Mmax), 'vortZ': vortZ_int, 'uPhi': uPhi_int, 'uS': uS_int, 'uZ':uS_int}
+    #result = {'s': s, 'm': np.arange(Mmax), 'vortZ': vortZ_int, 'uPhi': uPhi_int, 'uS': uS_int, 'uZ':uS_int}
+    result = {'s': s, 'm': np.arange(Mmax), field: FField}
     return result

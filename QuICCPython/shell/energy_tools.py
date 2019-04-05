@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.fftpack import dct, idct
-from numpy.polynomial.chebyshev import chebder, chebval
+from numpy.polynomial.chebyshev import chebder, chebval, chebgauss
 
 def ortho_pol_q(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None):
     # precondition: assume that the weight of the spectra is already in DCT format
@@ -29,7 +29,7 @@ def ortho_pol_q(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None):
     # This was the old implementation, using the standard Chebyshev
     # representation, with analytic integral over \left[-1,1\right]
     # represent the cheb indices in the mathematically correct way
-    """
+    """    
     c[1:] *= 2.
     
     # integrate, prepare index
@@ -37,14 +37,20 @@ def ortho_pol_q(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None):
     # and compute integration weight for -1 to +1
     w = (1+(-1)**idx)/(1-idx**2)
     w[1]=0
+    #return np.sum(w*c)/4.
+    x,w = chebgauss(len(y3))
+    return np.sum(w*y3) * a
+
     """
     # Assume now that c is in the same "wight standard" of x1 and x2
     
     Ic = I1*c
     temp = chebval([xmax, xmin], Ic)
     
-    #return np.sum(w*c)/4.
+
     return temp[0] - temp[1]
+
+
 
 def ortho_pol_s(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None):
     # precondition: assume that the weight of the spectra is already in DCT format
@@ -109,12 +115,18 @@ def ortho_pol_s(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None):
     w = (1+(-1)**idx)/(1-idx**2)
     w[1]=0
 
-    return np.sum(w*c)/4
+    #return np.sum(w*c)/4
+    
+    x,w = chebgauss(len(y3))
+    return np.sum(w*y3) * a
+
     """
     Ic = I1*c
     temp = chebval([xmax, xmin], Ic)
     
     return temp[0] - temp[1]
+
+
 
 def ortho_tor(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None,
               operation = 'simple', l = None):
@@ -164,7 +176,7 @@ def ortho_tor(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None,
         # compute the 2 pieces of the bilinear operator
         Diss1 = r*d2y1 + 2*dy1 - l*(l+1)/r*y1
         Diss2 = r*d2y2 + 2*dy2 - l*(l+1)/r*y2
-        y3 = l*(l+1)*Diss1*Diss2
+        y3 = Diss1*Diss2
         
     # bring back to spectral space
     c = dct(y3, type=2)/(2*len(y3))
@@ -180,7 +192,10 @@ def ortho_tor(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None,
     w = (1+(-1)**idx)/(1-idx**2)
     w[1]=0
 
-    return np.sum(w*c)/4
+    #return np.sum(w*c)/4
+    x,w = chebgauss(len(y3))
+    return np.sum(w*y3)*a
+
     """
     Ic = I1*c
     temp = chebval([xmax, xmin], Ic)
