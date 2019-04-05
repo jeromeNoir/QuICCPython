@@ -120,7 +120,7 @@ class BuildExt(build_ext):
         #TODO: automatically select architecture for linux and OSX 
         #osx: '-lboost_math_tr1-mt'
         #linux: '-lboost_math_tr1'
-        link = ['-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
+        link = ['-lshtns', '-lboost_math_tr1', '-lfftw3']
         if ct == 'unix':
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
             opts.append(cpp_flag(self.compiler))
