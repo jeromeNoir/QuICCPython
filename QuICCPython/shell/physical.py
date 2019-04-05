@@ -32,7 +32,7 @@ def getMeridionalSlice(phys_state, phi=None, field = 'velocity'):
         Field2 = interp1d(phi, getattr(phys_state.fields, field+'_theta'), axis=2)(phi)
         Field3 = interp1d(phi, getattr(phys_state.fields, field+'_phi'), axis=2)(phi)
 
-    result = {'x': X, 'y': Y, 'U_r': Field1, 'U_theta': Field2, 'U_phi': Field3}
+    result = {'x': X, 'y': Y, 'uR': Field1, 'uTheta': Field2, 'uPhi': Field3}
     return result
 
 
@@ -66,7 +66,7 @@ def getEquatorialSlice(phys_state, field = 'velocity'):
     Field2 = np.mean(getattr(phys_state.fields, field+'_theta')[:,idx_theta,:], axis=1)
     Field3 = np.mean(getattr(phys_state.fields, field+'_phi')[:,idx_theta,:], axis=1)
 
-    result = {'x': X, 'y': Y, 'U_r': Field1, 'U_theta': Field2, 'U_phi': Field3}
+    result = {'x': X, 'y': Y, 'uR': Field1, 'uTheta': Field2, 'uPhi': Field3}
     return result
 
 # define function for equatorial plane visualization from the visState0000.hdf5 file
@@ -90,7 +90,7 @@ def getIsoradiusSlice(phys_state, r=.5, field = 'velocity'):
     Field2 = interp1d(r_grid, getattr(phys_state.fields, field+'_theta'), axis=0)(r)
     Field3 = interp1d(r_grid, getattr(phys_state.fields, field+'_phi'), axis=0)(r)
 
-    result = {'theta': TTheta, 'phi': PPhi, 'U_r': Field1, 'U_theta': Field2, 'U_phi': Field3}
+    result = {'theta': TTheta, 'phi': PPhi, 'uR': Field1, 'uTheta': Field2, 'uPhi': Field3}
     return result
 
 # define function for equatorial plane visualization from the visState0000.hdf5 file
@@ -106,5 +106,5 @@ def getPointValue(phys_state, x1, x2, x3, field = 'velocity'):
     Field1 = interp1d((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, field+'_r'), (x1, x2, x3))
     Field2 = interp1d((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, field+'_theta'), (x1, x2, x3))
     Field3 = interp1d((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, field+'_phi'), (x1, x2, x3))
-    result = {'r': x1, 'theta':x2, 'phi': x3, 'U_r': Field1, 'U_theta': Field2, 'U_phi': Field3}
+    result = {'r': x1, 'theta':x2, 'phi': x3, 'uR': Field1, 'uTheta': Field2, 'uPhi': Field3}
     return result
