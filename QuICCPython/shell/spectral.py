@@ -525,6 +525,7 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
 # to tor/pol fields and the correct operator
 field_spectral = {'velocity': 'velocity', 'vorticity': 'velocity', 'magnetic': 'magnetic', 'current': 'magnetic'}
 field_operation = {'velocity': 'simple', 'vorticity': 'curl', 'magnetic': 'simple', 'current': 'curl'}
+
 # The function compute_energy makes use of orthogonal energy norms
 # to compute the energy of a field
 def computeEnergy(spec_state, field='velocity', rmin = 0., rmax = 1.):
@@ -614,6 +615,85 @@ def computeEnergy(spec_state, field='velocity', rmin = 0., rmax = 1.):
     tor_energy /= vol
     pol_energy /= vol
     return tor_energy + pol_energy, tor_energy, pol_energy
+
+def computeEnergyAverage(spec_state, field='velocity'):
+    # INPUT:
+    # field_name: string, specifies the field type (velocity, magnetic)
+
+
+    from QuICCPython.shell.energy_tools import solid_angle_average_tor,\
+        solid_angle_average_pol_q, solid_angle_average_pol_s
+    # precompute the radial tranform parameters
+    a, b = .5, .5 * (1 + spec_state.parameters.rratio) / (1 - spec_state.parameters.rratio)
+
+    # compute volume
+    ro = 1/(1-spec_state.parameters.rratio)
+    ri = spec_state.parameters.rratio/(1-spec_state.parameters.rratio)
+    vol = 4*np.pi
+
+    # generate idx indicer
+    spec_state.idx = idxlm(spec_state)
+    
+    # obtain the 2 fields
+    if field_operation[field] == 'simple':
+        
+        Tfield = getattr(spec_state.fields, field_spectral[field] + '_tor')
+        Pfield = getattr(spec_state.fields, field_spectral[field] + '_pol')
+        
+    elif field_operation[field] == 'curl':
+
+        Tfield = getattr(spec_state.fields, field_spectral[field] + '_pol')
+        Pfield = getattr(spec_state.fields, field_spectral[field] + '_tor')
+
+    else:
+        raise NotImplementedError('Type of curling operation not implemented')
+        
+    # precompute the integral matrix
+    nr = Tfield.shape[1]
+    
+    # init the storage
+    ny3 = int(3/2*nr)
+    tor_energy = np.zeros(ny3)
+    pol_energy = np.zeros(ny3)
+    
+    # loop first over f
+    for l in range(spec_state.specRes.L):
+
+        for m in range(min(l+1, spec_state.specRes.M) ):
+
+            # compute factor
+            factor = 1. if m==0 else 2.
+
+            # obtain modes
+            Tmode = Tfield[spec_state.idx[l, m], :]
+            Pmode = Pfield[spec_state.idx[l, m], :]
+
+            tor_energy += factor * l*(l+1) *\
+                solid_angle_average_tor(nr, a, b, Tmode.real,\
+                          operation = field_operation[field], l = l)
+            tor_energy += factor * l*(l+1)*\
+                solid_angle_average_tor(nr, a, b, Tmode.imag,\
+                      operation = field_operation[field], l = l)
+
+            pol_energy += factor * (l*(l+1))**2 *\
+                solid_angle_average_pol_q(nr, a, b, Pmode.real)
+            pol_energy += factor * (l*(l+1))**2 *\
+                solid_angle_average_pol_q(nr, a, b, Pmode.imag)
+
+            pol_energy += factor *  l*(l+1) *\
+                solid_angle_average_pol_s(nr, a, b, Pmode.real)
+            pol_energy += factor *  l*(l+1) *\
+                solid_angle_average_pol_s(nr, a, b, Pmode.imag)
+
+    if field_operation[field] == 'curl':
+        swap = tor_energy
+        tor_energy = pol_energy
+        pol_energy = swap
+    
+    tor_energy /= vol
+    pol_energy /= vol
+    return tor_energy + pol_energy, tor_energy, pol_energy
+
 
 def computeModeProduct(spec_state, spectral_state, m, field_name = 'velocity'):
 

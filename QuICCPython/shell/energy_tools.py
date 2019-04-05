@@ -202,3 +202,107 @@ def ortho_tor(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None,
     
     return temp[0] - temp[1]
 
+
+def solid_angle_average_pol_q(nr, a, b, x1):
+    # precondition: assume that the weight of the spectra is already in DCT format
+
+    # make copies
+    x_1 = np.array(x1)
+        
+    # pad the data
+    x1 = np.zeros(int(3/2*nr))
+    x1[:len(x_1)] = x_1
+    xx = np.zeros_like(x1)
+    xx[1] = .5
+      
+    # bring the functions to physical space
+    y1 = idct(x1, type = 2)
+    r = idct(xx, type = 2)*a + b
+    y1 = y1/r
+        
+    # multiply in physical
+    y3 = y1**2
+
+    return y3*r**2
+
+
+def solid_angle_average_pol_s(nr, a, b, x1):
+    # precondition: assume that the weight of the spectra is already in DCT format
+
+    # take derivative
+    # first bring back to correct form
+    x_1a = np.array(x1)
+    x_1a[1:] *= 2
+    dx_1 = chebder(x_1a)
+           
+    # make copies
+    x_1b = np.array(x1)
+        
+    # pad the data
+    x1a = np.zeros(int(3/2*nr))
+    x1b = np.zeros(int(3/2*nr))
+    
+    
+    x1a[:len(dx_1)] = dx_1
+    x1b[:len(x_1b)] = x_1b
+        
+    # create the spectral function that describes  T_1=x
+    r1 = np.zeros(int(3/2*nr))
+    r1[1] = .5
+    
+    # prepare the chebs for DCT
+    x1a[1:] *= .5
+        
+    # bring the functions to physical space
+    y1a = idct(x1a, type = 2)
+    y1b = idct(x1b, type = 2)
+    x = idct(r1, type = 2)
+    r = x*a + b
+
+    # multiply in physical
+    y3 = (y1a/a + y1b/r)**2
+
+    return y3*r**2
+
+def solid_angle_average_tor(nr, a, b, x1, operation = 'simple', l = None):
+    # precondition: assume that the weight of the spectra is already in DCT format
+
+    # make copies
+    x_1 = np.array(x1)
+        
+    # pad the data
+    x1 = np.zeros(int(3/2*nr))
+    x1[:len(x_1)] = x_1
+    
+  
+    # create the spectral function that describes  T_1=x
+    r1 = np.zeros(int(3/2*nr))
+    r1[1] = .5
+
+    # r matches radius
+    r  = idct(r1, type = 2) * a + b
+    
+    if operation == 'simple':
+
+        # bring the functions to physical space
+        y1 = idct(x1, type = 2)
+                
+        # multiply in physical
+        y3 = y1**2
+        # done this way to approximate QuICC at most
+        
+    elif operation == 'curl':
+        
+        dx1 = np.append(chebder(x1), 0.)
+        d2x1 = np.append(chebder(dx1), 0.)
+        
+        # transform everything
+        y1 = idct(x1, type = 2)
+        dy1 = idct(dx1, type = 2)
+        d2y1 = idct(d2x1, type = 2)
+
+        # compute the 2 pieces of the bilinear operator
+        Diss1 = d2y1 + 2*dy1/r - l*(l+1)*y1/r**2
+        y3 = Diss1**2
+
+    return y3*r**2
