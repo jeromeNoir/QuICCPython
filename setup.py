@@ -45,12 +45,16 @@ sources =    ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp',
                     'src/Quadratures/LegendreRule.cpp',
                     'src/Quadratures/PrueferAlgorithm.cpp']
 
-include_dirs =   ['External/eigen3', 
+#include_dirs =   ['External/eigen3', 
+#                        'include']
+include_dirs =   ['eigen-git-mirror', 
                         'include']
 
-sources = [env['QUICC_DIR']+ s for s in sources]
+#sources = [env['QUICC_DIR']+ s for s in sources]
+#include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
+sources = [s for s in sources]
 sources.append('src/QuICC.cpp')
-include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
+include_dirs = [s for s in include_dirs]
 
 include_dirs=[# Path to pybind11 headers
         get_pybind_include(),
