@@ -1,6 +1,7 @@
 """
 To install wrappers for pybind11 use
-- export QUICC='quicc-directory'
+- git submodule init 
+- git submodule update 
 - python3 -m pip install ./ 
 Author: leonardo.echeverria@erdw.ethz.ch
 """
@@ -28,9 +29,9 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
 
 
-env = os.environ.copy() #takes env variables
+env = os.environ.copy() #takes env variabls
 
-string1 =env.get('QUICC_DIR', None)
+#string1 =env.get('QUICC_DIR', None)
 
 if string1 == None: 
     print('Installing native Python')
