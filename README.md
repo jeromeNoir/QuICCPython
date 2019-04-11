@@ -11,8 +11,11 @@ Instalation:
     - ./configure 
     - make 
     - make install 
+    - python3 -m pip unfinstall pybind11 
 
 - install QuICCPython
+    - git submodule init
+    - git submodule update 
     - cd ../
     - python3 -m pip install ./
 
