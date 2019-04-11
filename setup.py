@@ -1,6 +1,7 @@
 """
 To install wrappers for pybind11 use
-- export QUICC='quicc-directory'
+- git submodule init 
+- git submodule update 
 - python3 -m pip install ./ 
 Author: leonardo.echeverria@erdw.ethz.ch
 """
@@ -28,14 +29,14 @@ class get_pybind_include(object):
         return pybind11.get_include(self.user)
 
 
-env = os.environ.copy() #takes env variables
+env = os.environ.copy() #takes env variabls
 
-string1 =env.get('QUICC_DIR', None)
+#string1 =env.get('QUICC_DIR', None)
 
-if string1 == None: 
-    print('Installing native Python')
-else:
-    print('Installing pybind11 accelerator')
+#if string1 == None: 
+#    print('Installing native Python')
+#else:
+#print('Installing pybind11 accelerator')
 
 sources =    ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp',
                     'src/Base/Precision.cpp',
@@ -45,12 +46,16 @@ sources =    ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp',
                     'src/Quadratures/LegendreRule.cpp',
                     'src/Quadratures/PrueferAlgorithm.cpp']
 
-include_dirs =   ['External/eigen3', 
+#include_dirs =   ['External/eigen3', 
+#                        'include']
+include_dirs =   ['eigen-git-mirror', 
                         'include']
 
-sources = [env['QUICC_DIR']+ s for s in sources]
+#sources = [env['QUICC_DIR']+ s for s in sources]
+#include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
+sources = [s for s in sources]
 sources.append('src/QuICC.cpp')
-include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
+include_dirs = [s for s in include_dirs]
 
 include_dirs=[# Path to pybind11 headers
         get_pybind_include(),
