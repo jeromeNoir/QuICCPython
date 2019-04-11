@@ -19,10 +19,10 @@ class BaseState:
         self.parameters = lambda: None
                    
         # hardcode set time and timestep
-        setattr(self.parameters, 'time', fin['run/time'].value)
-        setattr(self.parameters, 'timestep', fin['run/timestep'].value)
+        setattr(self.parameters, 'time', fin['run/time'][()])
+        setattr(self.parameters, 'timestep', fin['run/timestep'][()])
         for at in fin['physical'].keys():
-            setattr(self.parameters, at, fin['physical'][at].value)
+            setattr(self.parameters, at, fin['physical'][at][()])
         
         # store the geometry string as a lower case (makes it possible to compare, compare is always in lowercase)
         self.geometry = geometry.lower()
@@ -63,7 +63,7 @@ class PhysicalState(BaseState):
         # read the grid
 
         for at in fin['mesh']:
-            setattr(self, at, fin['mesh'][at].value)
+            setattr(self, at, fin['mesh'][at][()])
 
         # find the fields
         self.fields = lambda:None
@@ -114,7 +114,7 @@ class SpectralState(BaseState):
                     continue
                 
                 # skip the groups which are not at least matrices
-                if len(field.value.shape)<2:
+                if len(field[()].shape)<2:
                     continue
                     
                 field_temp = field[:]
@@ -165,9 +165,9 @@ class SpectralState(BaseState):
         if self.geometry == 'shell' or self.geometry == 'sphere':
 
             # read defined resolution
-            N = self.fin['/truncation/spectral/dim1D'].value + 1
-            L = self.fin['/truncation/spectral/dim2D'].value + 1
-            M = self.fin['/truncation/spectral/dim3D'].value + 1
+            N = self.fin['/truncation/spectral/dim1D'][()] + 1
+            L = self.fin['/truncation/spectral/dim2D'][()] + 1
+            M = self.fin['/truncation/spectral/dim3D'][()] + 1
             setattr(self.specRes, 'N', N)
             setattr(self.specRes, 'L', L)
             setattr(self.specRes, 'M', M)
@@ -177,9 +177,9 @@ class SpectralState(BaseState):
             
         elif self.geometry == 'cartesian':
 
-            N = self.fin['/truncation/spectral/dim1D'].value + 1
-            kx = self.fin['/truncation/spectral/dim2D'].value + 1
-            ky = self.fin['/truncation/spectral/dim3D'].value + 1
+            N = self.fin['/truncation/spectral/dim1D'][()] + 1
+            kx = self.fin['/truncation/spectral/dim2D'][()] + 1
+            ky = self.fin['/truncation/spectral/dim3D'][()] + 1
             setattr(self.specRes, 'N', N)
             setattr(self.specRes, 'kx', kx)
             setattr(self.specRes, 'ky', ky)
