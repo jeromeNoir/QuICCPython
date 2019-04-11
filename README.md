@@ -6,12 +6,14 @@ Instalation:
 
 - install dependencies:
     shtns:
-    - hg clone https://bitbucket.org/nschaeff/shtns)
+    - hg clone https://bitbucket.org/nschaeff/shtns
+    - cd shtns
     - ./configure 
     - make 
-    - install 
+    - make install 
 
 - install QuICCPython
+    - cd ../
     - python3 -m pip install ./
 
 
