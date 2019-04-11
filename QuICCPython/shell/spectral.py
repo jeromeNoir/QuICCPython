@@ -137,6 +137,10 @@ def makeIsoradiusGrid(spec_state):
 
     return X, Y, x, y    
 
+# define the following dictionaries for the convertion of field names
+# to the standard names of QuICCPython
+field_presentation = {'velocity': 'u', 'vorticity': 'vort', 'magnetic': 'b', 'current': 'j'}    
+
     
 def getPointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
 
@@ -180,7 +184,7 @@ def getPointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
                                                               :], r, theta, phi, kron='points', x=x)
 
-    return_value =  {'r': r, 'theta': theta, 'phi': phi, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
+    return_value =  {'r': r, 'theta': theta, 'phi': phi, fieldp+'R': FieldOut[0], fieldp+'Theta': FieldOut[1], fieldp+'Phi': FieldOut[2]}
 
     return return_value
 
@@ -256,7 +260,8 @@ def plm(spec_state, l, m, x = None):
         return temp[:, l - m]
     else:
         return spec_state.Plm[spec_state.idx[l, m], :]
-    
+
+
 
 # the function takes care of the looping over modes
 def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
@@ -295,7 +300,8 @@ def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
                                                                      :], r, theta, None, kron='meridional', phi0=phi0, field = field)
 
-    return {'x': X, 'y': Y, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
+    fieldp = field_presentation[field]
+    return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 
 # the function takes care of the looping over modes
@@ -349,8 +355,9 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
         f = np.hstack([f,np.column_stack(f[:,0]).T])
         field2.append(f)
     FieldOut = field2
-    
-    return {'x': X, 'y': Y, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
+
+    fieldp = field_presentation[field]
+    return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 # the function takes care of the looping over modes
 def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity'):
@@ -406,7 +413,8 @@ def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity'):
         field2.append(f)
 
     FieldOut = field2
-    return {'theta': TTheta, 'phi': PPhi, 'uR': FieldOut[0], 'uTheta': FieldOut[1], 'uPhi': FieldOut[2]}
+    fieldp = field_presentation[field]
+    return {'theta': TTheta, 'phi': PPhi, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 def evaluate_mode(spec_state, l, m, *args, **kwargs):
 
@@ -1145,7 +1153,7 @@ def subtractUniformVorticity(spec_state, omega):
     """
     pass
 
-def alignAlongFluid(state, omega):
+def alignAlongFluidAxis(state, omega):
 
     #finout = h5py.File(state, 'r+')
 
@@ -1310,6 +1318,9 @@ class Integrator():
         
         NsPoints, Nmax, Lmax, Mmax = self.res
         # there are points also on top of the tangent cylinder
+
+        # define the number of points in Z direction
+        NzPoints = int(Nmax + Lmax/2)
         
         # build the cylindrical radial grid
         s = np.linspace(0, roBoundary, 2 * NsPoints + 1)[1::2]
@@ -1318,7 +1329,7 @@ class Integrator():
         # compute the outside  tangent cylinder part
         ss1, no = np.meshgrid(s1, np.ones(2 * NsPoints))
         fs1 = (roBoundary ** 2 - s1 ** 2) ** .5
-        x, w = leggauss(NsPoints * 2)
+        x, w = leggauss(NzPoints * 2)
         no, zz1 = np.meshgrid(fs1, x)
         no, ww1 = np.meshgrid(fs1, w)
         zz1 *= fs1
@@ -1328,7 +1339,7 @@ class Integrator():
         ss2, no = np.meshgrid(s2, np.ones(2 * NsPoints))
         # this value is (h^+ - h^-)/2
         fs2 = ((roBoundary ** 2 - s2 ** 2) ** .5 - (riBoundary ** 2 - s2 ** 2) ** .5) / 2
-        x, w = leggauss(NsPoints)
+        x, w = leggauss(NzPoints)
         w *= .5
         no, zz2 = np.meshgrid(fs2, x)
         no, ww2 = np.meshgrid(fs2, w)
@@ -1358,12 +1369,14 @@ class Integrator():
 
         return
 
-def getZIntegrator(filename):
-    zInt = Integrator()
-    zInt.load(integrator)
+def getZIntegrator(spec_state, nS, field, maxN, maxL, maxM):
+    
+    zInt = Integrator((nS, maxN, maxL, maxM))
+    zInt.generateGrid(spec_state)
+        
     return zInt
 
-def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax = None, Nmax = None):
+def computeZIntegral(spec_state, field, nS, integrator = None, maxL = None, maxM = None, maxN = None):
 
     assert field in ['uPhi', 'uS', 'vortZ', 'uZ'], field+' not possible as a field option for computeZIntegral'
     
@@ -1386,23 +1399,25 @@ def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax
     if integrator == None:
 
         # if no integrator is specified, construct one on the spot
-        if Lmax == None:
-            Lmax = LL
-        if Mmax == None:
-            Mmax = MM
-        if Nmax == None:
-            Nmax = NN
+        if maxL == None:
+            maxL = LL
+        if maxM == None:
+            maxM = MM
+        if maxN == None:
+            maxN = NN
 
-        Nmax = min(Nmax, NN)
-        Lmax = min(Lmax, LL)
-        Mmax = min(Mmax, MM)
-        zInt = Integrator((nS, Nmax, Lmax, Mmax))
-        zInt.generateGrid(spec_state)
+        maxN = min(maxN, NN)
+        maxL = min(maxL, LL)
+        maxM = min(maxM, MM)
+        
+        # change the way getZIntegrator works
+        zInt = getZIntegrator(spec_state, nS, None, maxN, maxL, maxM)
 
     else:
 
-        # if integrator string is give, load an integrator
-        zInt = getIntegrator(integrator)
+        # if integrator string is give, load an integrator from memory
+        zInt = Integrator()
+        zInt.load(integrator)
         # assume the grid is already written
         
     NsPoints, Nmax, Lmax, Mmax = zInt.res
@@ -1569,4 +1584,55 @@ def computeZIntegral(spec_state, field, nS, integrator = None, Lmax = None, Mmax
 
     #result = {'s': s, 'm': np.arange(Mmax), 'vortZ': vortZ_int, 'uPhi': uPhi_int, 'uS': uS_int, 'uZ':uS_int}
     result = {'s': s, 'm': np.arange(Mmax), field: FField}
+    return result
+
+
+
+def computeGeostrophicPhysical(spectral_result, filter=[]):
+
+    # generate the result of this function
+    result = dict()
+
+    # copy spectral results so that it doesnt delete the data
+    
+    # function used to implemented to generate the real representation of the field
+    s = spectral_result['s']
+    m = spectral_result['m']
+
+    # generate the real grid for plotting
+    mn = 2*(len(m)-1)
+    phi = np.arange(0, mn )*2*np.pi /mn
+    # append the values that close the poles
+    s = np.hstack(([0.], s))
+    phi = np.hstack((phi, [np.pi*2]))
+    ss, pphi = np.meshgrid(s, phi)
+    xx = np.cos(pphi) * ss
+    yy = np.sin(pphi) * ss
+
+    # store the grid
+    result['x'] = xx
+    result['y'] = yy
+    result['phi'] = pphi
+    result['s'] = ss
+
+    # carry out the inverse fourier transform
+    for k in spectral_result.keys():
+
+        # skip over all the non matrix fields
+        if spectral_result[k].ndim <2:
+            continue
+
+        # truncate the spectrum if needed
+        temp = spectral_result[k]
+        for m in filter:
+            temp[m,:] = 0.
+        # compute the tranforms
+        field = np.fft.irfft(temp ,axis=0)
+        
+        # attach the right columns in the right place
+        field = np.vstack((field,field[0, :]))
+        temp1 = field[:, 0].reshape((-1, 1))
+        field = np.hstack((np.ones_like(temp1) * np.mean(temp1), field))
+        result[k] = field
+                    
     return result

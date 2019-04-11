@@ -158,12 +158,25 @@ def ortho_tor(nr, a, b, x1,  x2, xmin = -1, xmax = 1, I1 = None,
         y3 = y1*y2*(a*r + b)**2
         # done this way to approximate QuICC at most
     elif operation == 'curl':
+
+        # prepare vectors for the derivative
+        x1a = np.array(x1)
+        x2a = np.array(x2)
+        x1a[1:] *= 2
+        x2a[1:] *= 2
         
-        dx1 = np.append(chebder(x1), 0.)
+        # derivative in chebzshev space
+        dx1 = np.append(chebder(x1a), 0.)
         d2x1 = np.append(chebder(dx1), 0.)
-        dx2 = np.append(chebder(x2), 0.)
+        dx2 = np.append(chebder(x2a), 0.)
         d2x2 = np.append(chebder(dx2), 0.)
 
+        # prepare derivatives for the DCT
+        dx1[1:] *= .5
+        d2x1[1:] *= .5
+        dx2[1:] *= .5
+        d2x2[1:] *= .5
+        
         # transform everything
         r  = idct(r1, type = 2)
         r = (a*r + b)
@@ -292,10 +305,18 @@ def solid_angle_average_tor(nr, a, b, x1, operation = 'simple', l = None):
         # done this way to approximate QuICC at most
         
     elif operation == 'curl':
-        
+
+        # prepare vectors for the derivative
+        x1a = np.array(x1)
+        x1a[1:] *= 2
+                
         dx1 = np.append(chebder(x1), 0.)
         d2x1 = np.append(chebder(dx1), 0.)
-        
+
+        # prepare derivatives for the DCT
+        dx1[1:] *= .5
+        d2x1[1:] *= .5
+                
         # transform everything
         y1 = idct(x1, type = 2)
         dy1 = idct(dx1, type = 2)
