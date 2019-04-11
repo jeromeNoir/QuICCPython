@@ -1,11 +1,12 @@
-import sphere
+import EpmPython.sphere as sphere
 import h5py
 import numpy as np
 from scipy.fftpack import dct, idct
 from numpy.polynomial import chebyshev as cheb
 import sys, os
-env = os.environ.copy()
-sys.path.append(env['HOME']+'/quicc-github/QuICC/Python/')
+#env = os.environ.copy()
+#LEO: remove all QuICC dependency
+#sys.path.append(env['HOME']+'/quicc-github/QuICC/Python/')
 import EpmPython.sphere.spectral as spectral
 #get it from crossover_master_release
 #from quicc.projection.shell_energy import ortho_pol_q, ortho_pol_s, ortho_tor
