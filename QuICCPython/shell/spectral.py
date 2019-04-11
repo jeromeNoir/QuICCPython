@@ -1320,7 +1320,8 @@ class Integrator():
         # there are points also on top of the tangent cylinder
 
         # define the number of points in Z direction
-        NzPoints = int(Nmax + Lmax/2)
+        #NzPoints = int(Nmax + Lmax/2)
+        NzPoints = NsPoints
         
         # build the cylindrical radial grid
         s = np.linspace(0, roBoundary, 2 * NsPoints + 1)[1::2]
