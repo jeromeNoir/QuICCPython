@@ -2,6 +2,19 @@ The branch devel is supposed to self-contain the mess of change of architecture 
 
 # QuICCPython
 
+Instalation:
+
+- install dependencies:
+    shtns:
+    - hg clone https://bitbucket.org/nschaeff/shtns)
+    - ./configure 
+    - make 
+    - install 
+
+- install QuICCPython
+    - python3 -m pip install ./
+
+
 To read the HDF5:
 
 readSpectral(<fileName>)
@@ -69,5 +82,4 @@ Reconstruction of Data:
     
     
 Visualisation of Data.
-    
-    
+        
