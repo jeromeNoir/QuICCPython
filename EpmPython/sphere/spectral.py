@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.polynomial import chebyshev as cheb
+#from numpy.polynomial import chebyshev as cheb
 import sys
 #sys.path.append('/home/nicolol/workspace/QuICC/Scripts/Python/pybind11/')
 import quicc_bind as quicc_pybind
@@ -8,6 +8,8 @@ import quicc_bind as quicc_pybind
 from scipy.special import j_roots
 import scipy.special as special
 import time
+import EpmPython.read as read 
+
 
 def cheb_eval(nr, a, b, r):
     # INPUT:
@@ -27,10 +29,10 @@ def cheb_eval(nr, a, b, r):
     # (evaluation of antiderivative) purposes
 
     mat = np.mat(cheb.chebval(xx, coeffs).transpose())
+    
     return mat
 
 def fourier_eval(nr, r):
-    
     # evaluates the projection matrix for the chebyshev basis
     xx = np.array(r);
     v = np.zeros((nr,1),dtype=complex)
@@ -46,7 +48,6 @@ def fourier_eval(nr, r):
     return np.mat(v.transpose())
 
 def fourier_eval_shift(nr, r):
-
     # evaluates the projection matrix for the chebyshev basis
     xx = np.array(r);
     v = np.zeros((nr,1),dtype=complex)
@@ -104,7 +105,7 @@ def writeStateFile(state, filename):
     Store state file into file
     """
 
-def getUniformVorticity(state, rmax):
+def computeUniformVorticity(state, rmax):
     """
     function to compute uniform vorticity from a state file from 0 to rmax
     Input: 
@@ -212,7 +213,6 @@ def rotateStateSH(state, scale, phi0, theta0):
     scale: 'rotation' or 'viscous' timescale
     phi0: euler angle azimuthal rotation
     theta0: euler angle tilt
-    gam: azimuthal rotation given by \int \omega_f(t) dt  
     """ 
     #f = h5py.File(state, 'r') #read state 
     #Spectral resolution 
@@ -300,9 +300,13 @@ def rotateStateSH(state, scale, phi0, theta0):
 
     #rotatedState = (dataT, dataP, dataC)
     #return rotatedState
-    state.fields.velocity_tor = dataT
-    state.fields.velocity_pol = dataP
-    state.fields.codens_ity = dataC 
+    #create a copy of the statefile to rewrite and return  
+    rotState = read.SpectralState(state.filename)
+    rotState.fields.velocity_tor = dataT
+    rotState.fields.velocity_pol = dataP
+    rotState.fields.codens_ity = dataC
+
+    return rotState
 
 def alignAlongFluidAxis(state, omegaF):
     """
@@ -332,7 +336,9 @@ def alignAlongFluidAxis(state, omegaF):
 
     theta0=np.arctan(np.sqrt(Y11R**2+Y11I**2)/Y10)
         
-    rotateStateSH(state, scale, phi0, theta0)
+    rotState = rotateStateSH(state, scale, phi0, theta0)
+
+    return rotState
 
 def getGammaF(filename):
     """
@@ -417,11 +423,13 @@ def goToFluidFrameOfReference(state, gammaF):
     #    raise RuntimeError("Requested row normalization is inconsistent")
     del Qlm, Slm
 
-    #rotatedState = (dataT, dataP, dataC)
+    rotState = read.SpectralState(state.filename)
+    #(dataT, dataP, dataC)
     #return rotatedState
-    state.fields.velocity_tor = dataT
-    state.fields.velocity_pol = dataP
-    state.fields.codens_ity = dataC 
+    rotState.fields.velocity_tor = dataT
+    rotState.fields.velocity_pol = dataP
+    rotState.fields.codens_ity = dataC
+    return rotState
 
 def sz2ct(s,z):
     return z/np.sqrt(z*z+s*s)
@@ -580,11 +588,11 @@ class Integrator():
         self.res = _res
         self.type = _var
 
-def getZIntegrator(state, var="omegaZ", nNs=40):
+def getZIntegrator(state, var="vortZ", nNs=40):
     """
     compute integrator 
     Input: 
-    - var: variable to integrate omegaZ, uS, or uPhi
+    - var: variable to integrate vortZ, uS, or uPhi
     """
 
     nL=state.specRes.L
@@ -660,7 +668,7 @@ def getZIntegrator(state, var="omegaZ", nNs=40):
                     plm_leg = legSchmidtM(l, m, cos_local)
                     plm_diffLeg = diffLegM(l, m, cos_local)
 
-                    if var == "omegaZ":
+                    if var == "vortZ":
                         # computing contributions from toroidal and poloidal vorticity onto Z
                         vort_z = 1j * m * plm_lapw1 * plm_leg  # times P
                         vortz_tor[id_s, n, ind] = sum(w*vort_z)*np.sqrt(1-grid_s[id_s]**2)*(1.0-d)
@@ -717,7 +725,7 @@ def getZIntegrator(state, var="omegaZ", nNs=40):
     #resolution 
     res = (nNmax, nLmax, nMmax, nNs)
 
-    if var == "omegaZ":
+    if var == "vortZ":
         return Integrator(grid_s, vortz_tor, vortz_pol, res, var)
     elif var == "uPhi":
         return Integrator(grid_s, uphi_tor, uphi_pol, res, var)
@@ -731,7 +739,7 @@ def readIntegrator(filename):
     read integrator from a filename
     """
 
-def getZIntegral(state, zInt):
+def computeZIntegral(state, zInt):
     """
     compute z-integral for a given state 
     Input:
@@ -785,3 +793,292 @@ def getZIntegral(state, zInt):
                     zIntegral[m, id_s] = zIntegral[m, id_s] + _zIntegral #sum(w*vort_z)*sqrt(1-grid_s[id_s]**2)*(1.0-d) #Leo: check this
 
     return zIntegral
+
+# the function takes care of the looping over modes
+def getEquatorialSlice(state, p=0, modeRes = (120,120) ):
+    #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
+    #    raise NotImplementedError('makeEquatorialSlice is not implemented for the geometry: '+self.geometry)
+    # generate indexer
+    # this generate the index lenght also
+    state.idx = state.idxlm()
+    ridx = {v: k for k, v in state.idx.items()}
+
+    #if modeRes == None:
+    #    modeRes=(self.specRes.L, self.specRes.M)
+    # generate grid
+    X, Y, r, phi = state.makeEquatorialGrid()
+    grid_r = r
+    grid_phi = phi
+    # pad the fields
+    dataT = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataT[:,:state.specRes.N] = state.fields.velocity_tor
+    dataP = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataP[:,:state.specRes.N] = state.fields.velocity_pol
+    
+    # prepare the output fields
+    FR = np.zeros((len(r), int(state.physRes.nPhi/2)+1), dtype = 'complex')
+    FTheta = np.zeros_like(FR)
+    FPhi = np.zeros_like(FR)
+    FieldOut = [FR, FTheta, FPhi]
+            
+    # initialize the spherical harmonics
+    # only for the equatorial values
+    #state.makeSphericalHarmonics(np.array([np.pi/2]))
+    makeSphericalHarmonics(state, np.array([np.pi/2]))
+
+    for i in range(state.nModes):
+        # get the l and m of the index
+        l, m = ridx[i]
+        # statement to reduce the number of modes considered
+        #if l> modeRes[0] or m> modeRes[1]:
+        #    continue
+        #Core function to evaluate (l,m) modes summing onto FieldOut             
+        #state.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, None, phi, kron='equatorial', phi0=p)
+        evaluate_mode(state, l, m, FieldOut, dataT[i, :], dataP[i,:], r, None, phi, kron='equatorial', phi0=p)
+
+    field2 = []
+
+    #loop over the fields
+    for i, f in enumerate(FieldOut):
+        temp = f
+        #m=0 factor
+        if i > 0:
+            temp[0,:] *= 2.
+        #apply irfft
+        f = np.fft.irfft(temp, axis=1)
+        #normalize
+        f = f * len(f[0,:])
+        f = np.hstack([f,np.column_stack(f[:,0]).T])
+        field2.append(f)
+    FieldOut = field2
+    #return X, Y, field2
+    return {'x': X, 'y': Y, 'uR': FieldOut[0].T, 'uTheta': FieldOut[1].T, 'uPhi': FieldOut[2].T}
+
+def getMeridionalSlice(state, p=0, modeRes = (120,120) ):
+    """
+    p: phi angle of meridional splice 
+    modeRes: resolution of output
+    the function takes care of the looping over modes
+    TODO: Nico add comments and change syntax   
+    """
+
+    #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
+    #    raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
+
+    # generate indexer
+    # this generate the index lenght also
+    state.idx = state.idxlm()
+    # returns (l,m) from index 
+    ridx = {v: k for k, v in state.idx.items()}
+
+    """
+    if modeRes == None:
+        modeRes=(self.specRes.L, self.specRes.M)
+    """
+    
+    # generate grid
+    # X, Y: meshgrid for plotting in cartesian coordinates
+    # r, theta: grid used for evaluation 
+    X, Y, r, theta = state.makeMeridionalGrid()
+    
+    # pad the fields to apply 3/2 rule 
+    dataT = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataT[:,:state.specRes.N] = state.fields.velocity_tor
+    dataP = np.zeros((state.nModes, state.physRes.nR), dtype='complex')
+    dataP[:,:state.specRes.N] = state.fields.velocity_pol
+    
+    # prepare the output fields in radial, theta, and phi 
+    FR = np.zeros((len(r), len(theta)))
+    FTheta = np.zeros_like(FR)
+    FPhi = np.zeros_like(FR)
+    FieldOut = [FR, FTheta, FPhi]
+            
+    # initialize the spherical harmonics
+    makeSphericalHarmonics(state, theta)
+
+    for i in range(state.nModes):
+        
+        # get the l and m of the index
+        l, m = ridx[i]
+
+        # statement to redute the number of modes considered
+        #if l> modeRes[0] or m> modeRes[1]:
+        #continue
+        #state.evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i,:], r, theta, None, kron='meridional', phi0=p)
+        evaluate_mode(state, l, m, FieldOut, dataT[i, :], dataP[i,:], r, theta, None, kron='meridional', phi0=p)
+
+    return {'x': X, 'y': Y, 'uR': FieldOut[0].T, 'uTheta': FieldOut[1].T, 'uPhi': FieldOut[2].T}
+
+def makeSphericalHarmonics(state, theta):
+    # change the theta into x
+    x = np.cos(theta)
+    state.xth = x
+
+    # initialize storage to 0
+    state.Plm = np.zeros((state.nModes, len(x)))
+    state.dPlm = np.zeros_like(state.Plm)
+    state.Plm_sin = np.zeros_like(state.Plm)
+
+    # generate the reverse indexer
+    ridx = {v: k for k, v in state.idx.items()}
+    for m in range(state.specRes.M):
+        # compute the assoc legendre
+        #temp = sphere.plm(state.specRes.L-1, m, x)
+        temp = plm(state.specRes.L-1, m, x)
+        #temp = wor.plm(self.specRes.L-1, m, x) #Leo: this implementation doesn't work 
+
+        # assign the Plm to storage
+        for l in range(m, state.specRes.L):
+            state.Plm[state.idx[l, m], :] = temp[:, l-m]
+            pass
+        
+        pass
+
+    # compute dPlm and Plm_sin
+    for i in range(state.nModes):
+        l, m = ridx[i]
+        state.dPlm[i, :] = -.5 * (((l+m)*(l-m+1))**0.5 * state.plm(l,m-1) -
+                                 ((l-m)*(l+m+1))**.5 * state.plm(l, m+1, x) )
+
+        if m!=0:
+            state.Plm_sin[i, :] = -.5/m * (((l-m)*(l-m-1))**.5 *
+                                          state.plm(l-1, m+1, x) + ((l+m)*(l+m-1))**.5 *
+                                        state.plm(l-1, m-1)) * ((2*l+1)/(2*l-1))**.5
+        else:
+            state.Plm_sin[i, :] = state.plm(l, m)/(1-x**2)**.5
+
+    pass
+
+def evaluate_mode(state, l, m, *args, **kwargs):
+    """
+    evaluate (l,m) mode and return FieldOut
+    input: 
+    spectral coefficients: dataT, dataP, 
+    physical grid: r, theta, phi0
+    kron: 'meridional' or 'equatorial'
+    outpu: FieldOut
+    e.g:
+    evaluate_mode(l, m, FieldOut, dataT[i, :], dataP[i, :], r, theta, kron='meridional', phi0=p)
+    """
+    #print(l, m)
+    # raise exception if wrong geometry
+    #if not (self.geometry == 'shell' or self.geometry == 'sphere'):
+    #    raise NotImplementedError('makeMeridionalSlice is not implemented for the geometry: '+self.geometry)
+
+    # prepare the input data
+    #Evaluated fields 
+    Field_r = args[0][0]
+    Field_theta = args[0][1]
+    Field_phi = args[0][2]
+    #spectral coefficients
+    modeT = args[1]
+    modeP = args[2]
+    #grid points 
+    r = args[3]
+    theta = args[4]
+    phi = args[5]
+    phi0 = kwargs['phi0']
+
+    
+    # define factor
+    factor = 1. if m==0 else 2.
+
+    if kwargs['kron'] == 'isogrid':
+        x = kwargs['x']
+        #TODO: Leo
+        q_part = None
+        s_part = None
+        t_part = None
+    
+    else: # hence either meridional or equatorial
+        # prepare the q_part
+        # q = l*(l+1) * Poloidal / r            
+        # idct: inverse discrete cosine transform
+        # type = 2: type of transform 
+        # q = Field_radial 
+        # prepare the q_part
+        # idct = \sum c_n * T_n(xj)
+        modeP_r = np.zeros_like(r)
+
+        # prepare the s_part
+        # s_part = orthogonal to Field_radial and Field_Toroidal
+        # s_part = (Poloidal)/r + d(Poloidal)/dr = 1/r d(Poloidal)/dr
+        dP = np.zeros_like(r)
+
+        # prepare the t_part
+        # t_part = Field_Toroidal                
+        t_part = np.zeros_like(r)
+
+        for n in range(state.specRes.N):
+            modeP_r=modeP_r+modeP[n]*W(n, l, r)/r
+            dP = dP+modeP[n]*diffW(n, l, r)
+            t_part = t_part + modeT[n]*W(n,l,r)
+
+        q_part =  modeP_r*l*(l+1)#same stuff
+        s_part = modeP_r + dP 
+    
+    # depending on the kron type it changes how 2d data are formed
+    # Mapping from qst to r,theta, phi 
+    # phi0: azimuthal angle of meridional plane. It's also the phase shift of the flow with respect to the mantle frame, 
+    if kwargs['kron'] == 'meridional':
+        eimp = np.exp(1j *  m * phi0)
+        
+        idx_ = state.idx[l, m]
+        Field_r += np.real(kron(q_part, state.Plm[idx_, :]) *
+                           eimp) * factor
+        
+        Field_theta += np.real(kron(s_part, state.dPlm[idx_, :]) * eimp) * 2
+        Field_theta += np.real(kron(t_part, state.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor
+        Field_phi += np.real(kron(s_part, state.Plm_sin[idx_, :]) * eimp * 1j * m) * 2#factor 
+        Field_phi -= np.real(kron(t_part, state.dPlm[idx_, :]) * eimp) * 2
+
+    elif kwargs['kron'] == 'equatorial':
+        """
+        eimp = np.exp(1j *  m * (phi0 + phi))
+        
+        idx_ = self.idx[l, m]
+        Field_r += np.real(tools.kron(q_part, eimp) *
+                           self.Plm[idx_, :][0]) * factor
+        
+        Field_theta += np.real(tools.kron(s_part, eimp)) * self.dPlm[idx_, :][0] * 2
+        Field_theta += np.real(tools.kron(t_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0] * 2#factor
+        Field_phi += np.real(tools.kron(s_part, eimp) * 1j * m) * self.Plm_sin[idx_, :][0] * 2#factor
+        Field_phi -= np.real(tools.kron(t_part, eimp)) * self.dPlm[idx_, :][0] * 2
+        """
+        idx_ = state.idx[l, m]
+        
+        #Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) * q_part) * factor
+        Field_r[:, m] += state.Plm[idx_, :] * q_part
+
+        #Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part) * 2
+        Field_theta[:, m] += state.dPlm[idx_, :] * s_part
+        #Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * t_part) * 2#factor
+        Field_theta[:, m] += state.Plm_sin[idx_, :] * 1j * m * t_part
+        #Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * s_part) * 2#factor
+        Field_phi[:, m] += state.Plm_sin[idx_, :]* 1j * m * s_part
+        #Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part) * 2
+        Field_phi[:, m] -= state.dPlm[idx_, :] * t_part
+        
+    elif kwargs['kron'] == 'isogrid':
+        #eimp = np.exp(1j *  m * (phi0 + phi))
+        
+        idx_ = state.idx[l, m]
+        
+        #Field_r += np.real(tools.kron(self.Plm[idx_, :], eimp) * q_part) * factor
+        Field_r[:, m] += self.Plm[idx_, :] * q_part
+
+        #Field_theta += np.real(tools.kron(self.dPlm[idx_, :], eimp) * s_part) * 2
+        Field_theta[:, m] += state.dPlm[idx_, :] * s_part
+        #Field_theta += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * t_part) * 2#factor
+        Field_theta[:, m] += state.Plm_sin[idx_, :] * 1j * m * t_part
+        #Field_phi += np.real(tools.kron(self.Plm_sin[idx_, :], eimp * 1j * m) * s_part) * 2#factor
+        Field_phi[:, m] += state.Plm_sin[idx_, :]* 1j * m * s_part
+        #Field_phi -= np.real(tools.kron(self.dPlm[idx_, :], eimp) * t_part) * 2
+        Field_phi[:, m] -= state.dPlm[idx_, :] * t_part
+        
+    else:
+        raise ValueError('Kron type not understood: '+kwargs['kron'])
+
+    pass
+            
+
