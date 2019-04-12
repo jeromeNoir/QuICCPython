@@ -12,10 +12,15 @@ Instalation:
     - make 
     - make install 
 
+    ** For Anaconda Mac users:
+    - export MACOSX_DEPLOYMENT_TARGET=10.9
+    before installing pybind 11
+    - python3 -m pip install pybind11 
+
 - install QuICCPython
     - cd ../
     - python3 -m pip install ./
-
+	
 
 To read the HDF5:
 
