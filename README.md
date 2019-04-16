@@ -13,8 +13,11 @@ Instalation:
     - make install 
     - export MACOSX_DEPLOYMENT_TARGET=10.9 (** For Anaconda-Mac users)
     - python3 -m pip install pybind11 
-- get Eigen sources 
+- clone QuICCPython 
     - cd ../
+    - git clone 
+    - cd QuICCPython
+- get Eigen sources 
     - git submodule init
     - git submodule update
 - install QuICCPython
