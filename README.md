@@ -5,7 +5,7 @@ The branch devel is supposed to self-contain the mess of change of architecture 
 Instalation:
 
 - install dependencies:
-    shtns (install mercurial):
+    shtns (use mercurial):
     - hg clone https://bitbucket.org/nschaeff/shtns
     - cd shtns
     - ./configure 
