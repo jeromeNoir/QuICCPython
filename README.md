@@ -17,10 +17,10 @@ Instalation:
     before installing pybind 11
     - python3 -m pip install pybind11 
 - get Eigen sources 
+    - cd ../
     - git submodule init
     - git submodule update
 - install QuICCPython
-    - cd ../
     - python3 -m pip install ./
 	
 
