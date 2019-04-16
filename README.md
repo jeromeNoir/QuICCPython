@@ -16,7 +16,9 @@ Instalation:
     - export MACOSX_DEPLOYMENT_TARGET=10.9
     before installing pybind 11
     - python3 -m pip install pybind11 
-
+- get Eigen sources 
+    - git submodule init
+    - git submodule update
 - install QuICCPython
     - cd ../
     - python3 -m pip install ./
