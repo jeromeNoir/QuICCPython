@@ -11,10 +11,7 @@ Instalation:
     - ./configure 
     - make 
     - make install 
-
-    ** For Anaconda-Mac users:
-    - export MACOSX_DEPLOYMENT_TARGET=10.9
-    before installing pybind 11
+    - export MACOSX_DEPLOYMENT_TARGET=10.9 (** For Anaconda-Mac users)
     - python3 -m pip install pybind11 
 - get Eigen sources 
     - cd ../
