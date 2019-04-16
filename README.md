@@ -5,14 +5,14 @@ The branch devel is supposed to self-contain the mess of change of architecture 
 Instalation:
 
 - install dependencies:
-    shtns:
+    shtns (install mercurial):
     - hg clone https://bitbucket.org/nschaeff/shtns
     - cd shtns
     - ./configure 
     - make 
     - make install 
 
-    ** For Anaconda Mac users:
+    ** For Anaconda-Mac users:
     - export MACOSX_DEPLOYMENT_TARGET=10.9
     before installing pybind 11
     - python3 -m pip install pybind11 
