@@ -15,7 +15,7 @@ Instalation:
     - python3 -m pip install pybind11 
 - clone QuICCPython 
     - cd ../
-    - git clone 
+    - git clone git@github.com:jeromeNoir/QuICCPython.git
     - cd QuICCPython
 - get Eigen sources 
     - git submodule init
