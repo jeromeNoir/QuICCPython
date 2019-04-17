@@ -1,8 +1,21 @@
-The branch devel is supposed to self-contain the mess of change of architecture before merging to the "new master"
-
 # QuICCPython
 
-Instalation:
+QuICCPython is a postprocessing software developed (almost natively)
+in Python. It provides routines for the manipulation of stored HDF5 files
+generated from QuICC runs
+(https://github.com/QuICC/QuICC.git). Several routines are also available to
+perform computation of kinetic and magnetic energy, uniform vorticity
+of the flow. Generation of slices for the different geometries
+supported by QuICC is also supported.
+
+
+
+##Instalation:
+
+QuICCPython requires a C++ compiled module to compute associated
+Legendre functions, Worland polynomials (Marti and Jackson, 2016), and
+perform rotation of the spectrum (Gimbutas and Greengard, 2009). To
+provide this requirements, please follow this steps
 
 - install dependencies:
     shtns (use mercurial):
