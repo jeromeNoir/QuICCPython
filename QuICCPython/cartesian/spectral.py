@@ -82,9 +82,9 @@ def getVerticalSliceInX(data, field, level):
     padfield = np.zeros( (int((ny+1)*3/2), int(nz*3/2)  ), dtype=complex)
     padfield[ 0:ny, 0:nz] = test.T
     
-    
+    [ny2] = np.fft.irfft(padfield[:,0]).shape
     real_field = np.zeros((int((ny+1)*3/2), int(nz*3/2)),  dtype=complex)
-    real_field2 = np.zeros((int(ny*3), int(nz*3/2)),  dtype=complex)
+    real_field2 = np.zeros((ny2, int(nz*3/2)),  dtype=complex)
     
     for i in range(0, int((ny)*3/2)):
         real_field[i,:] = idct(padfield[i,:])

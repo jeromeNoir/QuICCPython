@@ -4,7 +4,10 @@ To install wrappers for pybind11 use
 - git submodule update 
 - python3 -m pip install ./ 
 Author: leonardo.echeverria@erdw.ethz.ch
+
 """
+#LEO: be careful by choosing the right tool-chain 
+#error building with Anaconda 
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
@@ -124,8 +127,12 @@ class BuildExt(build_ext):
 
         #TODO: automatically select architecture for linux and OSX 
         #osx: '-lboost_math_tr1-mt'
-        #linux: '-lboost_math_tr1'
-        link = ['-lshtns', '-lboost_math_tr1', '-lfftw3']
+        if sys.platform == 'darwin':
+            link = ['-lshtns', '-lboost_math_tr1-mt', '-lfftw3']
+        else:
+            #linux: '-lboost_math_tr1'
+            link = ['-lshtns', '-lboost_math_tr1', '-lfftw3']
+
         if ct == 'unix':
             opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
             opts.append(cpp_flag(self.compiler))

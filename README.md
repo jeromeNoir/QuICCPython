@@ -5,17 +5,24 @@ The branch devel is supposed to self-contain the mess of change of architecture 
 Instalation:
 
 - install dependencies:
-    shtns:
+    shtns (use mercurial):
     - hg clone https://bitbucket.org/nschaeff/shtns
     - cd shtns
     - ./configure 
     - make 
     - make install 
-
-- install QuICCPython
+    - export MACOSX_DEPLOYMENT_TARGET=10.9 (** For Anaconda-Mac users)
+    - python3 -m pip install pybind11 
+- clone QuICCPython 
     - cd ../
+    - git clone git@github.com:jeromeNoir/QuICCPython.git
+    - cd QuICCPython
+- get Eigen sources 
+    - git submodule init
+    - git submodule update
+- install QuICCPython
     - python3 -m pip install ./
-
+	
 
 To read the HDF5:
 
