@@ -18,7 +18,7 @@ def makeOptimalIWCut(state, nPoints, isGeostrophicCut = False):
     phi_0 = np.pi/2 + omega_n * state.parameters.time
     
     # obtain propagation angle of inertial waves
-    theta_prime = np.arccos(np.abs(omega_n)/2)
+    theta_prime = np.pi/2 - np.arccos(np.abs(omega_n)/2)
     if isGeostrophicCut:
         theta_prime = 0
 
