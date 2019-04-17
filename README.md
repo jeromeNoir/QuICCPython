@@ -12,18 +12,26 @@ supported by QuICC is also supported.
 
 ## Instalation:
 
+### Install dependencies
+
 QuICCPython requires a C++ compiled module to compute associated
 Legendre functions, Worland polynomials (Marti and Jackson, 2016), and
 perform rotation of the spectrum (Gimbutas and Greengard, 2009). To
 provide this requirements, please follow this steps
 
-- install dependencies:
-    shtns (use mercurial):
-    - hg clone https://bitbucket.org/nschaeff/shtns
-    - cd shtns
-    - ./configure 
-    - make 
-    - make install 
+- install SHTns (Schäffer, 2013):
+
+You are gonna need mercurial for
+this task. Download SHTns in your workspace or a download folder.
+
+    hg clone https://bitbucket.org/nschaeff/shtns
+    cd shtns
+    ./configure 
+    make 
+    make install
+
+- install pybind11
+
     - export MACOSX_DEPLOYMENT_TARGET=10.9 (** For Anaconda-Mac users)
     - python3 -m pip install pybind11 
 - clone QuICCPython 
