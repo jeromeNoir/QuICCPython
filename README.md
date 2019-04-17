@@ -21,28 +21,35 @@ provide this requirements, please follow this steps
 
 - install SHTns (Schäffer, 2013):
 
-You are gonna need mercurial for
-this task. Download SHTns in your workspace or a download folder.
+You are gonna need mercurial for this task. Download SHTns in your
+workspace or a download folder.
 
     hg clone https://bitbucket.org/nschaeff/shtns
     cd shtns
     ./configure 
     make 
-    make install
+    sudo make install
 
 - install pybind11
 
-    - export MACOSX_DEPLOYMENT_TARGET=10.9 (** For Anaconda-Mac users)
-    - python3 -m pip install pybind11 
-- clone QuICCPython 
-    - cd ../
-    - git clone git@github.com:jeromeNoir/QuICCPython.git
-    - cd QuICCPython
-- get Eigen sources 
-    - git submodule init
-    - git submodule update
-- install QuICCPython
-    - python3 -m pip install ./
+Pybind11 is required to link C++ executable into a Python module. Mac
+user using python through anaconda require to set the following
+environment variable:
+
+    export MACOSX_DEPLOYMENT_TARGET=10.9
+
+Pybind11 is available through pip
+
+    python3 -m pip install pybind11
+
+- download QuICCPython
+Next you will download QuICCPython and together with ir
+
+    git clone https://github.com/jeromeNoir/QuICCPython.git
+    cd QuICCPython
+    - get Eigen
+sources - git submodule init - git submodule update - install
+QuICCPython - python3 -m pip install ./
 	
 
 To read the HDF5:
