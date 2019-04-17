@@ -10,7 +10,7 @@ supported by QuICC is also supported.
 
 
 
-##Instalation:
+## Instalation:
 
 QuICCPython requires a C++ compiled module to compute associated
 Legendre functions, Worland polynomials (Marti and Jackson, 2016), and
