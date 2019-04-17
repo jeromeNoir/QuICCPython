@@ -172,7 +172,7 @@ def getPointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
     FieldOut = [FR, FTheta, FPhi]
 
     # initialize the spherical harmonics
-    spec_state.makeSphericalHarmonics(theta)
+    makeSphericalHarmonics(spec_state, theta)
     x = (r - spec_state.b)/spec_state.a
     for i in range(spec_state.nModes):
 
@@ -182,8 +182,9 @@ def getPointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
         # statement to redute the number of modes considered
 
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                              :], r, theta, phi, kron='points', x=x)
+                                                                     :], r, theta, phi, kron='points', x=x, field=field)
 
+    fieldp = field_presentation[field]
     return_value =  {'r': r, 'theta': theta, 'phi': phi, fieldp+'R': FieldOut[0], fieldp+'Theta': FieldOut[1], fieldp+'Phi': FieldOut[2]}
 
     return return_value
@@ -439,7 +440,7 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
     factor = 1. if m==0 else 2.
         
     x = kwargs.get('x', None)
-    if x == None:
+    if x is None:
         x = (r - spec_state.b)/spec_state.a
         
     # assume that the mode is weighted like Philippe sets it
