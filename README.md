@@ -46,17 +46,17 @@ Pybind11 is available through pip
 
 Next you will download QuICCPython and obtain the submodules
 
-     git clone https://github.com/jeromeNoir/QuICCPython.git
-     cd QuICCPython
-     git submodule init
-     git submodule update
+    git clone https://github.com/jeromeNoir/QuICCPython.git
+    cd QuICCPython
+    git submodule init
+    git submodule update
 
 - install quicc-bind
 
 You're gonna need to compile the C++ sources and link them to a python
 module using pybind11. To do this, run
 
-     python3 -m pip install ./
+    python3 -m pip install ./
 	
 
 # Usage
@@ -64,9 +64,10 @@ module using pybind11. To do this, run
 ## Reading files
 To read the HDF5:
 
-   from QuICCPython import read
-   myData = read.SpectralState(<fileName>)  
-   myData = read.PhysicalState(<fileName>)
+    from QuICCPython import read
+    
+    myData = read.SpectralState(<fileName>)  
+    myData = read.PhysicalState(<fileName>)
 
 
 read EPM and QuICC hdf5 - it is a mapping between what is in the hdf5 and python. Fields are created as needed!!!
