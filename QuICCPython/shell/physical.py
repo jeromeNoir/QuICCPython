@@ -109,14 +109,15 @@ def getPointValue(phys_state, x1, x2, x3, field = 'velocity'):
     assert (phys_state.geometry == 'shell'), "Tools not implemented for geometry"+phys_state.geometry
 
     # find the grid in radial and meridional direction
-    x1_grid = phys_state.grid_r
-    x2_grid = phys_state.grid_theta
+    x1_grid = phys_state.grid_r[::-1]
+    x2_grid = phys_state.grid_theta[::-1]
     x3_grid = phys_state.grid_phi
 
     fields = field_storage[field]
-    Field1 = interp1d((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, fields+'_r'), (x1, x2, x3))
-    Field2 = interp1d((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, fields+'_theta'), (x1, x2, x3))
-    Field3 = interp1d((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, fields+'_phi'), (x1, x2, x3))
+    Field1 = interpn((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, fields+'_r')[::-1, ::-1,:], (x1, x2, x3))
+    Field2 = interpn((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, fields+'_theta')[::-1, ::-1,:], (x1, x2, x3))
+    Field3 = interpn((x1_grid, x2_grid, x3_grid), getattr(phys_state.fields, fields+'_phi')[::-1, ::-1,:], (x1, x2, x3))
+    
     fieldp = field_presentation[field]
     result = {'r': x1, 'theta':x2, 'phi': x3, fieldp+'R': Field1.T, fieldp+'Theta': Field2.T, fieldp+'Phi': Field3.T}
     return result
