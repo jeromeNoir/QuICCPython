@@ -8,8 +8,6 @@ perform computation of kinetic and magnetic energy, uniform vorticity
 of the flow. Generation of slices for the different geometries
 supported by QuICC is also supported.
 
-
-
 ## Instalation:
 
 ### Install dependencies
@@ -58,76 +56,71 @@ module using pybind11. To do this, run
 
     python3 -m pip install ./
 	
-
 # Usage
 
 ## Reading files
-To read the HDF5:
+HDF5 files can be opened with:
 
+	```python
     from QuICCPython import read
     
-    myData = read.SpectralState(<fileName>)  
-    myData = read.PhysicalState(<fileName>)
+    myDataSpectral = read.SpectralState(<fileName>)
+    myDataPhysical = read.PhysicalState(<fileName>)
+	```
+	
+Once opened
+
+	```python
+	myData.parameters. ...
+	```
+	
+contains the parameters used to run the simulation, and
+
+	```python
+	myData.fields. ...
+	```
+	
+contains the states, either in spectral coefficient of physical
+values, of the simulation.
 
 
-read EPM and QuICC hdf5 - it is a mapping between what is in the hdf5 and python. Fields are created as needed!!!
-structure of the ouput:   
-    
-    myData=readPhysical...
-    
-    grid output: 
-                if the grid is cartesian
-    myData.grid.x -> 3D array
-               .y
-               .z
-               ...
-               
-               if the grid is spherical create only 
-               
-               .r
-               .theta
-               .phi...
-               
-    Parameters: create the fields as needed!!!
-    
-    myData.parameters.time
-                     .timeStep
-                     .Ek
-                     .Ra...
-                     IMPORTANT geometry
-    
-    myData.velocity.u
-                   .v
-                   .w...or for spherical it should look like
-                   .ur
-                   .utheta
-                   .uphi
-                   
-     otherfields created as needed:
-     
-     myData.vorticity
-     myData.temperature
-     myData.magneticField...
-     
-     
-     
-     
-     
-    TODO: how to turn the dictionary keys into field names (set attribute)
-    
-    readSpectral:(Magical Leo)
-    
-    myData.parameters....IMPORTANT geometry
-    myData.velocity.poloidal -> 2x(spectral dimension) 
-    myData.velocity.poroidal
-    myData.temperature....
-    
-Reconstruction of Data:
-    getUniformVorticity(myData)
-    alignedToFluidRotationAxis(myData)
-    geostrophicComponent(myData)
-    
-    
-    
-Visualisation of Data.
-        
+## Obtaining slices and line cuts
+
+Once the data are open  it is possible to obtain slices of the various
+field components for plotting. The specific implementation is
+dependent firstly on whether the data is in its spectral or physical
+representation. Secondly, it depends on the geometry. The exact module
+can be found in *QuICCPython.<geometry>.<specrtal/physical>*. For
+example one can obtain meridional slices of the simulation state with:
+	
+	```python
+	from QuICCPython.shell.spectral import getMeridionalSlice
+	meridionalSlice = getMeridionalSlice(myData, phi0 = np.pi/2)
+	```
+	
+The returned value is a python dictionary with keys
+
+	```python
+	meridionalSlice['x',
+		'y',
+		'uR',
+		'uTheta',
+		'uPhi']
+	```
+	
+thanks to which it is possible to plot with ease, with
+
+	```python
+	from matplotlib import pyplot as plt
+	plt.contourf(myData['x'], myData['y'], myData['uPhi'])
+	```
+
+Furthermore it is possible to store the results to memory with
+	
+	```python
+	from scipy.io import savemat
+	savemat('myFile.mat', mdict = myData)
+	```
+For further examples, please consult the notebooks
+*shellExample.ipynb*, *sphereExample.ipynb* and
+*cartesianExample.ipynb* in the main folder.

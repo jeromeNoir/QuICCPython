@@ -1288,7 +1288,7 @@ class Integrator():
         fin.close()
         pass
         
-    def generateGrid(self, spec_state):
+    def generateGrid(self, spec_state, uniqueTC = False):
         # here state is needed to obtain the eta parameter    
     
         # import eta value and others
@@ -1321,15 +1321,20 @@ class Integrator():
         # there are points also on top of the tangent cylinder
 
         # define the number of points in Z direction
-        #NzPoints = int(Nmax + Lmax/2)
-        NzPoints = NsPoints
+        NzPoints = int(Nmax + Lmax/2)
+        #NzPoints = NsPoints
         
         # build the cylindrical radial grid
         s = np.linspace(0, roBoundary, 2 * NsPoints + 1)[1::2]
-        s1 = s[s>=riBoundary]
-        s2 = s[s<riBoundary]
+        # then split the cylidrical radial grid between inside and
+        # outside the "tangent cylinder" (\pm the inner boundary
+        # layer) 
+        s1 = s[s>=riBoundary] # outer domain
+        s2 = s[s<riBoundary]  # inner domain
+        
         # compute the outside  tangent cylinder part
-        ss1, no = np.meshgrid(s1, np.ones(2 * NsPoints))
+        ss1, no = np.meshgrid(s1, np.ones(2 * NzPoints))
+        # compute the height of the column
         fs1 = (roBoundary ** 2 - s1 ** 2) ** .5
         x, w = leggauss(NzPoints * 2)
         no, zz1 = np.meshgrid(fs1, x)
@@ -1338,8 +1343,8 @@ class Integrator():
         
         
         # compute the inside of the tangent cylinder
-        ss2, no = np.meshgrid(s2, np.ones(2 * NsPoints))
-        # this value is (h^+ - h^-)/2
+        ss2, no = np.meshgrid(s2, np.ones(2 * NzPoints))
+        # this value is (h^+ - h^-)/2, the height of the column 
         fs2 = ((roBoundary ** 2 - s2 ** 2) ** .5 - (riBoundary ** 2 - s2 ** 2) ** .5) / 2
         x, w = leggauss(NzPoints)
         w *= .5
@@ -1349,36 +1354,56 @@ class Integrator():
         # this value is (h^+ + h^-)/2
         means = ((roBoundary ** 2 - s2 ** 2) ** .5 + (riBoundary ** 2 - s2 ** 2) ** .5) / 2
         zz2 += means
-        zz2 = np.vstack((zz2, -zz2))
-        ww2 = np.vstack((ww2, ww2))
-        
-        # combine the 2 grids together
-        ss = np.hstack((ss2, ss1))
-        self.ss = ss
-        zz = np.hstack((zz2, zz1))
-        self.zz = zz
-        self.ww = np.hstack((ww2, ww1))
-        
+
+        if uniqueTC:
+            zz2 = np.vstack((zz2, -zz2))
+            ww2 = np.vstack((ww2, ww2))
+            
+            # combine the 2 grids together
+            self.ss = np.hstack((ss2, ss1))
+            self.zz = np.hstack((zz2, zz1))
+            self.ww = np.hstack((ww2, ww1))
+            # prepare the division weight
+            self.fs = np.hstack([fs2*2, fs1]) * 2
+            
+            self.uniqueTC = uniqueTC
+        else: # if uniqueTC == False
+            zz3 = np.vstack((zz2, np.zeros_like(zz2)))
+            zz4 = np.vstack((np.zeros_like(zz2), zz2))
+            ww3 = np.vstack((ww2, np.zeros_like(ww2)))
+            ww4 = np.vstack((np.zeros_like(ww2), ww2))
+
+            # combine the 2 grids together
+            self.ss = np.hstack((ss2, ss2, ss1))
+            self.zz = np.hstack((zz3, zz4, zz1))
+            self.ww = np.hstack((ww3, ww4, ww1))
+            # prepare the division weight
+            self.fs = np.hstack([fs2, fs2, fs1]) * 2
+
+            self.domain_index = np.hstack([1*np.ones_like(fs2),\
+                                           -1*np.ones_like(fs2), np.zeros_like(fs1)])
+
+            self.uniqueTC = uniqueTC
         # prepare the grid for tchebyshev polynomials
-        self.ttheta = np.arctan2(ss, zz)
-        self.rr = (ss**2+zz**2)**.5
+        self.ttheta = np.arctan2(self.ss, self.zz)
+        self.rr = (self.ss**2+self.zz**2)**.5
         self.xx = (self.rr - b)/a
         self.ccos_theta = np.cos(self.ttheta)
         self.ssin_theta = np.sin(self.ttheta)
         
-        # prepare the division weight
-        self.fs = np.hstack([fs2*2, fs1]) * 2
-
+        
         return
 
-def getZIntegrator(spec_state, nS, field, maxN, maxL, maxM):
+def getZIntegrator(spec_state, nS, field, maxN, maxL, maxM, uniqueTC =
+                   False):
     
     zInt = Integrator((nS, maxN, maxL, maxM))
-    zInt.generateGrid(spec_state)
+    zInt.generateGrid(spec_state, uniqueTC = uniqueTC)
         
     return zInt
 
-def computeZIntegral(spec_state, field, nS, integrator = None, maxL = None, maxM = None, maxN = None):
+def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
+                     None, maxM = None, maxN = None, uniqueTC = False):
 
     assert field in ['uPhi', 'uS', 'vortZ', 'uZ'], field+' not possible as a field option for computeZIntegral'
     
@@ -1413,7 +1438,8 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL = None, maxM
         maxM = min(maxM, MM)
         
         # change the way getZIntegrator works
-        zInt = getZIntegrator(spec_state, nS, None, maxN, maxL, maxM)
+        zInt = getZIntegrator(spec_state, nS, None, maxN, maxL, maxM,
+                              uniqueTC = uniqueTC)
 
     else:
 
@@ -1586,6 +1612,8 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL = None, maxM
 
     #result = {'s': s, 'm': np.arange(Mmax), 'vortZ': vortZ_int, 'uPhi': uPhi_int, 'uS': uS_int, 'uZ':uS_int}
     result = {'s': s, 'm': np.arange(Mmax), field: FField}
+    if not zInt.uniqueTC:
+        result['domain_index'] = zInt.domain_index
     return result
 
 
@@ -1605,12 +1633,21 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
     mn = 2*(len(m)-1)
     phi = np.arange(0, mn )*2*np.pi /mn
     # append the values that close the poles
-    s = np.hstack(([0.], s))
+    if spectral_result.get('domain_index', None) is None:
+        s = np.hstack(([0.], s))
+    
     phi = np.hstack((phi, [np.pi*2]))
     ss, pphi = np.meshgrid(s, phi)
     xx = np.cos(pphi) * ss
     yy = np.sin(pphi) * ss
 
+    if spectral_result.get('domain_index', None) is not None:
+        idx1 = spectral_result['domain_index'] == 1
+        xx[:, idx1] += 2.5
+
+        idx2 = spectral_result['domain_index'] == -1
+        xx[:, idx2] += -2.5
+    
     # store the grid
     result['x'] = xx
     result['y'] = yy
@@ -1625,16 +1662,22 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
             continue
 
         # truncate the spectrum if needed
-        temp = spectral_result[k]
+        temp = copy(spectral_result[k])
         for m in filter:
             temp[m,:] = 0.
         # compute the tranforms
         field = np.fft.irfft(temp ,axis=0)
-        
-        # attach the right columns in the right place
         field = np.vstack((field,field[0, :]))
-        temp1 = field[:, 0].reshape((-1, 1))
-        field = np.hstack((np.ones_like(temp1) * np.mean(temp1), field))
+        if spectral_result.get('domain_index', None) is None:
+            # attach the right columns in the right place
+            
+            temp1 = field[:, 0].reshape((-1, 1))
+            field = np.hstack((np.ones_like(temp1) * np.mean(temp1),
+        field))
+        
         result[k] = field
-                    
+
+    if spectral_result.get('domain_index', None) is not None:
+        result['domain_index'] = spectral_result['domain_index']
+    
     return result
