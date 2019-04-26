@@ -60,25 +60,25 @@ module using pybind11. To do this, run
 
 ## Reading files
 HDF5 files can be opened with:
+	
+```python
+from QuICCPython import read
 
-	```python
-    from QuICCPython import read
-    
-    myDataSpectral = read.SpectralState(<fileName>)
-    myDataPhysical = read.PhysicalState(<fileName>)
-	```
+myDataSpectral = read.SpectralState(<fileName>)
+myDataPhysical = read.PhysicalState(<fileName>)
+```
 	
 Once opened
 
 ```python
-	myData.parameters. ...
-	```
+myData.parameters. ...
+```
 	
 contains the parameters used to run the simulation, and
 
-	```python
-	myData.fields. ...
-	```
+```python
+myData.fields. ...
+```
 	
 contains the states, either in spectral coefficient of physical
 values, of the simulation.
