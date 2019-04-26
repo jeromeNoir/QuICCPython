@@ -112,14 +112,14 @@ thanks to which it is possible to plot with ease, with
 
 ```python
 from matplotlib import pyplot as plt
-plt.contourf(myData['x'], myData['y'], myData['uPhi'])
+plt.contourf(meridionalSlice['x'], meridionalSlice['y'], meridionalSlice['uPhi'])
 ```
 
 Furthermore it is possible to store the results to memory with
 
 ```python
 from scipy.io import savemat
-savemat('myFile.mat', mdict = myData)
+savemat('myFile.mat', mdict = meridionalSlice)
 ```
 
 For further examples, please consult the notebooks
