@@ -1288,7 +1288,7 @@ class Integrator():
         fin.close()
         pass
         
-    def generateGrid(self, spec_state, uniqueTC = False):
+    def generateGrid(self, spec_state, uniqueTC = False, alpha = 10.):
         # here state is needed to obtain the eta parameter    
     
         # import eta value and others
@@ -1309,7 +1309,7 @@ class Integrator():
         self.b = b =.5*(1+eta)/(1-eta)
         
         # compute boundary layer
-        d = 10.*E**.5
+        d = alpha*E**.5
         riBoundary = eta/(1-eta)+d
         roBoundary = 1/(1-eta)-d
         
@@ -1321,8 +1321,8 @@ class Integrator():
         # there are points also on top of the tangent cylinder
 
         # define the number of points in Z direction
-        NzPoints = int(Nmax + Lmax/2)
-        #NzPoints = NsPoints
+        #NzPoints = int(Nmax + Lmax/2)
+        NzPoints = Lmax
         
         # build the cylindrical radial grid
         s = np.linspace(0, roBoundary, 2 * NsPoints + 1)[1::2]
@@ -1335,53 +1335,66 @@ class Integrator():
         # compute the outside  tangent cylinder part
         ss1, no = np.meshgrid(s1, np.ones(2 * NzPoints))
         # compute the height of the column
-        fs1 = (roBoundary ** 2 - s1 ** 2) ** .5
+        h = (roBoundary ** 2 - s1 ** 2) ** .5
         x, w = leggauss(NzPoints * 2)
-        no, zz1 = np.meshgrid(fs1, x)
-        no, ww1 = np.meshgrid(fs1, w)
-        zz1 *= fs1
+        no, zz1 = np.meshgrid(h, x)
+        no, ww1 = np.meshgrid(h, w)
+        zz1 *= h
+        # insert the 1/2 needed by the analytical expression
+        ww1 *= .5
+            
         
         
         # compute the inside of the tangent cylinder
+        # explicitely this computation is done for the upper (N) tangent cylinder
         ss2, no = np.meshgrid(s2, np.ones(2 * NzPoints))
         # this value is (h^+ - h^-)/2, the height of the column 
-        fs2 = ((roBoundary ** 2 - s2 ** 2) ** .5 - (riBoundary ** 2 - s2 ** 2) ** .5) / 2
+        delta_h = ((roBoundary ** 2 - s2 ** 2) ** .5 - (riBoundary ** 2 - s2 ** 2) ** .5) 
         x, w = leggauss(NzPoints)
-        w *= .5
-        no, zz2 = np.meshgrid(fs2, x)
-        no, ww2 = np.meshgrid(fs2, w)
-        zz2 *= fs2
+        #w *= .5
+        no, zz2 = np.meshgrid(delta_h, x)
+        no, ww2 = np.meshgrid(delta_h, w)
+        zz2 *= delta_h / 2
         # this value is (h^+ + h^-)/2
         means = ((roBoundary ** 2 - s2 ** 2) ** .5 + (riBoundary ** 2 - s2 ** 2) ** .5) / 2
         zz2 += means
 
         if uniqueTC:
             zz2 = np.vstack((zz2, -zz2))
-            ww2 = np.vstack((ww2, ww2))
+            # insert a factor of 1/2 that represent the average
+            # between <.>_N and <.>_S
+            ww2 = np.vstack((ww2, ww2)) *.5
+
+            # insert the 1/2 needed by the analytical expression
+            ww2 *= .5
             
             # combine the 2 grids together
             self.ss = np.hstack((ss2, ss1))
             self.zz = np.hstack((zz2, zz1))
             self.ww = np.hstack((ww2, ww1))
             # prepare the division weight
-            self.fs = np.hstack([fs2*2, fs1]) * 2
+            #self.fs = np.hstack([fs2*2, fs1]) * 2
             
             self.uniqueTC = uniqueTC
         else: # if uniqueTC == False
             zz3 = np.vstack((zz2, np.zeros_like(zz2)))
-            zz4 = np.vstack((np.zeros_like(zz2), zz2))
+            zz4 = np.vstack((np.zeros_like(zz2), -zz2))
             ww3 = np.vstack((ww2, np.zeros_like(ww2)))
             ww4 = np.vstack((np.zeros_like(ww2), ww2))
 
+            # insert the 1/2 needed by the analytical expression
+            ww3 *= .5
+            ww4 *= .5
+            
             # combine the 2 grids together
             self.ss = np.hstack((ss2, ss2, ss1))
             self.zz = np.hstack((zz3, zz4, zz1))
             self.ww = np.hstack((ww3, ww4, ww1))
             # prepare the division weight
-            self.fs = np.hstack([fs2, fs2, fs1]) * 2
+            #self.fs = np.hstack([fs2, fs2, fs1]) * 2
 
-            self.domain_index = np.hstack([1*np.ones_like(fs2),\
-                                           -1*np.ones_like(fs2), np.zeros_like(fs1)])
+            self.domain_index = np.hstack([1*np.ones_like(delta_h),\
+                                           -1*np.ones_like(delta_h), np.zeros_like(h)])
 
             self.uniqueTC = uniqueTC
         # prepare the grid for tchebyshev polynomials
@@ -1395,15 +1408,15 @@ class Integrator():
         return
 
 def getZIntegrator(spec_state, nS, field, maxN, maxL, maxM, uniqueTC =
-                   False):
+                   False, alpha = 10.):
     
     zInt = Integrator((nS, maxN, maxL, maxM))
-    zInt.generateGrid(spec_state, uniqueTC = uniqueTC)
+    zInt.generateGrid(spec_state, uniqueTC = uniqueTC, alpha = alpha)
         
     return zInt
 
 def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
-                     None, maxM = None, maxN = None, uniqueTC = False):
+                     None, maxM = None, maxN = None, uniqueTC = False, alpha=10.):
 
     assert field in ['uPhi', 'uS', 'vortZ', 'uZ'], field+' not possible as a field option for computeZIntegral'
     
@@ -1439,7 +1452,7 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
         
         # change the way getZIntegrator works
         zInt = getZIntegrator(spec_state, nS, None, maxN, maxL, maxM,
-                              uniqueTC = uniqueTC)
+                              uniqueTC = uniqueTC, alpha = alpha)
 
     else:
 
@@ -1460,7 +1473,7 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
     xx = zInt.xx
     xx_th = zInt.ccos_theta
     ssin_theta = zInt.ssin_theta
-    fs = zInt.fs
+    #fs = zInt.fs
     # prepare resolution for the integrator
     Ns = ss.shape[1]
     # edit: now Ns == NsPoints
@@ -1508,7 +1521,8 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
         plm_sin_storage = tools.plm_sin(Lmax, m, xtheta)
 
         # take into account the factor for the fourier transform
-        factor = 1. if m==0 else 2.
+        #factor = 1. if m==0 else 2.
+        factor = 1.
 
         for l in range(m, Lmax):
             
@@ -1667,6 +1681,7 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
             temp[m,:] = 0.
         # compute the tranforms
         field = np.fft.irfft(temp ,axis=0)
+        field *= len(field[:, 0])
         field = np.vstack((field,field[0, :]))
         if spectral_result.get('domain_index', None) is None:
             # attach the right columns in the right place
