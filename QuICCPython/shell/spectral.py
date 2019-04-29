@@ -1128,16 +1128,15 @@ def correctRotation(state, toBeCorrected = ['/velocity/velocity_tor','/velocity/
         pass
 """
 def subtractUniformVorticity(spec_state, omega):
-    #finout = h5py.File(state, 'r+')
-    #eta = finout['/physical/rratio'].value
-    eta = spec_state.parameters.rratio
+
+    from copy import deepcopy
+    state = deepcopy(spec_state)
+    eta = state.parameters.rratio
     a = .5
     b = .5*(1+eta)/(1-eta)
 
-    #dataT = finout['/velocity/velocity_tor'].value
-    dataT = spec_state.fields.velocity_tor
-    #dataT = dataT[:, :, 0] + dataT[:, :, 1]*1j
-
+    dataT = state.fields.velocity_tor
+    
     idx = idxlm(spec_state)
     dataT[idx[1, 0], 0] -= 2*(np.pi/3)**.5 * b * omega[2]
     dataT[idx[1, 0], 1] -= 2*(np.pi/3)**.5 * a * omega[2]*.5
@@ -1145,23 +1144,10 @@ def subtractUniformVorticity(spec_state, omega):
     dataT[idx[1, 1], 0] -= 2*(2*np.pi/3)**.5 * b * (-omega[0] + omega[1]*1j)*.5
     dataT[idx[1, 1], 1] -= 2*(2*np.pi/3)**.5 * a * (-omega[0] + omega[1]*1j)*.5*.5
 
-    """
-    torField = finout['/velocity/velocity_tor'].value
-    torField[:, :, 0] = dataT.real
-    torField[:, :, 1] = dataT.imag
-    finout['/velocity/velocity_tor'][:]=torField
-    finout.close()
-    """
-    pass
+    return state
+
 
 def alignAlongFluidAxis(state, omega):
-
-    #finout = h5py.File(state, 'r+')
-
-    #LL=finout['/truncation/spectral/dim2D'].value 
-    #MM=finout['/truncation/spectral/dim3D'].value 
-    #NN=finout['/truncation/spectral/dim1D'].value 
-    #Ro = finout['/physical/ro'].value
 
     # make a copy of
     from copy import deepcopy
@@ -1170,9 +1156,8 @@ def alignAlongFluidAxis(state, omega):
     LL = spec_state.specRes.L - 1
     MM = spec_state.specRes.M - 1
     NN = spec_state.specRes.N - 1
-    Ro = spec_state.parameters.ro
     # compute Euler angles
-    (alpha, beta, gamma) = computeEulerAngles(omega * Ro)
+    (alpha, beta, gamma) = computeEulerAngles(omega)
     alpha = float(alpha)
     LL = int(LL)
     MM = int(MM)
@@ -1233,23 +1218,18 @@ def computeEulerAngles(omega):
     return (alpha, beta, gamma)
 
 def processState(spec_state):
-    # spec_state is now a QuICCPython data object
-
-    # compute averate vorticity
-    omega = computeAverageVorticity(spec_state)
     
-    # copy the state file ( rotations and subtractions of states are done in place
-    #filename = 'stateRotated.hdf5'
-    #copyfile(state, filename)
-
+    # compute averate vorticity
+    omega = computeUniformVorticity(spec_state)
+    
     # subtract average vorticity
-    subtractUniformVorticity(spec_state, omega)
+    state = subtractUniformVorticity(spec_state, omega)
 
-    # to be rotated: '/velocity/velocity_tor', '/velocity/velocity_pol'
-    #fields = ['/velocity/velocity_tor', '/velocity/velocity_pol']
-    rotateState(filename, omega)
-        
-    pass
+    # rotate the states to put them in the fluid axis
+    Ro = state.parameters.ro 
+    rotatedState = alignAlongFluidAxis(state, Ro*omega)
+    
+    return rotatedState
 
 
 class Integrator():
@@ -1696,3 +1676,38 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
         result['domain_index'] = spectral_result['domain_index']
     
     return result
+
+
+def removeUniformVorticity(spec_state, omega):
+
+    from copy import deepcopy
+    state = deepcopy(spec_state)
+    eta = state.parameters.rratio
+    a = .5
+    b = .5*(1+eta)/(1-eta)
+
+    dataT = spec_state.fields.velocity_tor
+        
+    dataT[1, 0] -= 2*(np.pi/3)**.5 * b * omega[2]
+    dataT[1, 1] -= 2*(np.pi/3)**.5 * a * omega[2]*.5
+    
+    dataT[2, 0] -= 2*(2*np.pi/3)**.5 * b * (-omega[0] + omega[1]*1j)*.5
+    dataT[2, 1] -= 2*(2*np.pi/3)**.5 * a * (-omega[0] + omega[1]*1j)*.5*.5
+        
+    return state
+
+
+def process_state(spec_state):
+
+    # compute averate vorticity
+    omega = computeUniformVorticity(spec_state)
+        
+    # subtract average vorticity
+    removeUniformVorticity(spec_state, omega)
+
+    # rotate the state
+    Ro = state.parameters.ro 
+    rotatedState = alignAlongFluidAxis(state, Ro*omega)
+            
+    return rotatedState
+
