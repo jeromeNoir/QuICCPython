@@ -361,7 +361,7 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
     return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 # the function takes care of the looping over modes
-def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity'):
+def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity', mFilter = []):
     
     assert (spec_state.geometry == 'shell'), 'makeIsoradiusSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -399,6 +399,10 @@ def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity'):
 
         # get the l and m of the index
         l, m = ridx[i]
+
+        # skip if m is in the filtered modes
+        if m in mFilter:
+            continue
 
         # update the field for the current mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,

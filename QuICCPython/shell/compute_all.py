@@ -15,6 +15,7 @@ def main(filename):
     # turn the file in the frame of rotation and subtract unif vorticity'
     processedState = processState(state)    
 
+    E = state.parameters.ekman
     Ns = 3/E**.3
     spectralUS = computeZIntegral(processedState, 'uS', Ns)
     savemat('GeostrophicUS.mat', mdict = spectralUS)
@@ -26,18 +27,17 @@ def main(filename):
     savemat('GeostrophicVortZ.mat', mdict = spectralVortZ)
 
     
-    meridFields = getMeridionalSlice()
+    meridFields = getMeridionalSlice(state)
     savemat('MeridionalFlowPhys.mat', mdict = meridFields)
-    equatFields = getEquatorialSlice()
+    equatFields = getEquatorialSlice(state)
     savemat('EquatorialFlowPhys.mat', mdict = equatFields)
-    midFields = getIsoradiusSlice()
+    midFields = getIsoradiusSlice(state)
     savemat('MidradiusFlowPhys.mat', mdict = midFields)
 
     # output the fields in the boundary layers
-    E = spectralVisualizer.parameters.ekman
-    innerBound = getIsoradiusSlice(r = 2.* E **.5)
+    innerBound = getIsoradiusSlice(state, r = 2.* E **.5)
     savemat('IBoundaryFlowPhys.mat', mdict = innerBound)
-    outerBound = getIsoradiusSlice(r = 1 - 2. * E**.5)
+    outerBound = getIsoradiusSlice(state, r = 1 - 2. * E**.5)
     savemat('OBoundaryFlowPhys.mat', mdict = outerBound)
                 
     return
