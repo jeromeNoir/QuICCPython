@@ -16,7 +16,8 @@ def main(filename):
     processedState = processState(state)    
 
     E = state.parameters.ekman
-    Ns = 3/E**.3
+    #Ns = 3/E**.3
+    Ns = 100
     spectralUS = computeZIntegral(processedState, 'uS', Ns)
     savemat('GeostrophicUS.mat', mdict = spectralUS)
     
