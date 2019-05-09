@@ -52,7 +52,14 @@ sources =    ['src/PolynomialTransforms/AssociatedLegendrePolynomial.cpp',
 #include_dirs =   ['External/eigen3', 
 #                        'include']
 include_dirs =   ['eigen-git-mirror', 
-                        'include']
+                  'include',
+                  env['HOME'] + '/.local/include'
+]
+
+# define library_dirs as well
+library_dirs = [env['HOME'] + '/.local/lib/',
+                env['HOME'] + '/.local/lib64'
+]
 
 #sources = [env['QUICC_DIR']+ s for s in sources]
 #include_dirs = [env['QUICC_DIR']+ s for s in include_dirs]
@@ -74,6 +81,7 @@ ext_modules = [
         'quicc_bind',
         sources, 
         include_dirs=include_dirs,
+        library_dirs=library_dirs,
         language='c++'
 
     ),
