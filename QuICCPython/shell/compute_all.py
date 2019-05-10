@@ -18,13 +18,13 @@ def main(filename):
     E = state.parameters.ekman
     #Ns = 3/E**.3
     Ns = 100
-    spectralUS = computeZIntegral(processedState, 'uS', Ns)
+    spectralUS = computeZIntegral(processedState, 'uS', Ns, maxM = 100)
     savemat('GeostrophicUS.mat', mdict = spectralUS)
     
-    spectralUPhi = computeZIntegral(processedState, 'uPhi', Ns)
+    spectralUPhi = computeZIntegral(processedState, 'uPhi', Ns, maxM = 100)
     savemat('GeostrophicUPhi.mat', mdict = spectralUPhi)
     
-    spectralVortZ = computeZIntegral(processedState, 'vortZ', Ns)
+    spectralVortZ = computeZIntegral(processedState, 'vortZ', Ns, maxM = 100)
     savemat('GeostrophicVortZ.mat', mdict = spectralVortZ)
 
     
