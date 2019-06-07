@@ -1665,7 +1665,7 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
         #     continue
         # TODO: problem using scipy.io.loadmat transforms s and m into
         # (1,ndim) vectors
-        if k in ['s', 'm']:
+        if k in ['s', 'm', 'domain_index']:
             continue
 
         # truncate the spectrum if needed
