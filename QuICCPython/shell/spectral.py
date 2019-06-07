@@ -1647,7 +1647,7 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
         xx[:, idx2] += -2.5
     
     # store the grid
-    result['x'] = xx
+    result['x'] = xx.
     result['y'] = yy
     result['phi'] = pphi
     result['s'] = ss.flatten()
@@ -1661,7 +1661,11 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
             continue
         
         # skip over all the non matrix fields
-        if spectral_result[k].ndim <2:
+        # if spectral_result[k].ndim <2:
+        #     continue
+        # TODO: problem using scipy.io.loadmat transforms s and m into
+        # (1,ndim) vectors
+        if k in ['s', 'm']:
             continue
 
         # truncate the spectrum if needed
