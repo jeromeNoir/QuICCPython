@@ -1654,7 +1654,11 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
 
     # carry out the inverse fourier transform
     for k in spectral_result.keys():
-
+        
+        # skip over all the objects which are not np.ndarrays, avoid
+        # problems for the next if clause
+        if not isinstance(spectral_result[k], np.ndarray):
+            continue
         # skip over all the non matrix fields
         if spectral_result[k].ndim <2:
             continue
