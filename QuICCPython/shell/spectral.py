@@ -1624,8 +1624,8 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
     # copy spectral results so that it doesnt delete the data
     
     # function used to implemented to generate the real representation of the field
-    s = spectral_result['s']
-    m = spectral_result['m']
+    s = spectral_result['s'].flatten()
+    m = spectral_result['m'].flatten()
 
     # generate the real grid for plotting
     mn = 2*(len(m)-1)
