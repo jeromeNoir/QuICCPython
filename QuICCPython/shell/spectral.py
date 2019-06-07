@@ -1659,6 +1659,7 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
         # problems for the next if clause
         if not isinstance(spectral_result[k], np.ndarray):
             continue
+        
         # skip over all the non matrix fields
         if spectral_result[k].ndim <2:
             continue
