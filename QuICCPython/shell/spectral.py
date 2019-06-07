@@ -1647,7 +1647,7 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
         xx[:, idx2] += -2.5
     
     # store the grid
-    result['x'] = xx.
+    result['x'] = xx
     result['y'] = yy
     result['phi'] = pphi
     result['s'] = ss
