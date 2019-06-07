@@ -1650,7 +1650,7 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
     result['x'] = xx
     result['y'] = yy
     result['phi'] = pphi
-    result['s'] = ss
+    result['s'] = ss.flatten()
 
     # carry out the inverse fourier transform
     for k in spectral_result.keys():
