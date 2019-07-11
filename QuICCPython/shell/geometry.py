@@ -25,8 +25,10 @@ def makeOptimalIWCut(state, nPoints, isGeostrophicCut = False):
     rmid = 1/2*(1+eta)/(1-eta)
     zmin = np.cos(theta_prime) * rmid
     smin = np.sin(theta_prime) * rmid
-    zmax = zmin - np.sin(theta_prime) * 2 * eta/(1-eta)
-    smax = smin + np.cos(theta_prime) * 2 * eta/(1-eta)
+    zmax = zmin - np.sin(theta_prime) * 1.5 * eta/(1-eta)
+    smax = smin + np.cos(theta_prime) * 1.5 * eta/(1-eta)
+    zmin -= np.sin(theta_prime) * .5 * eta/(1-eta)
+    smin += np.cos(theta_prime) * .5 * eta/(1-eta)
 
     # generate the cartesian grids
     z = np.linspace(zmin, zmax, nPoints)

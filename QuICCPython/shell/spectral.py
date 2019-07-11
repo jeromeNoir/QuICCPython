@@ -185,7 +185,11 @@ def getPointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
                                                                      :], r, theta, phi, kron='points', x=x, field=field)
 
     fieldp = field_presentation[field]
-    return_value =  {'r': r, 'theta': theta, 'phi': phi, fieldp+'R': FieldOut[0], fieldp+'Theta': FieldOut[1], fieldp+'Phi': FieldOut[2]}
+    
+    # prepare the output in cylindrical coordinates
+    z = np.cos(theta) * r
+    s = np.sin(theta) * r
+    return_value =  {'r': r, 'theta': theta, 'phi': phi, fieldp+'R': FieldOut[0], fieldp+'Theta': FieldOut[1], fieldp+'Phi': FieldOut[2], 's': s, 'z': z}
 
     return return_value
 
@@ -265,7 +269,7 @@ def plm(spec_state, l, m, x = None):
 
 
 # the function takes care of the looping over modes
-def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
+def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = []):
 
     assert (spec_state.geometry == 'shell'), 'makeMeridionalSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -296,6 +300,9 @@ def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
 
         # get the l and m of the index
         l, m = ridx[i]
+        
+        if m in mFilter:
+            continue
 
         # evaluate mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
@@ -306,7 +313,7 @@ def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
 
 
 # the function takes care of the looping over modes
-def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
+def getEquatorialSlice(spec_state, phi0=0, field = 'velocity', mFilter = []):
 
     assert (spec_state.geometry == 'shell'), 'makeEquatorialSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -341,7 +348,10 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
 
         # get the l and m of the index
         l, m = ridx[i]
-
+        
+        if m in mFilter:
+            continue
+        
         # evaluate the mode update
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
                                                                      :], r, None, phi, kron='equatorial', phi0=phi0, field = field)
@@ -350,6 +360,8 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
     field2 = []
     for i, f in enumerate(FieldOut):
         temp = f
+        
+        
         
         f = np.fft.irfft(temp, axis=1)
         f = f * len(f[0,:])
@@ -361,7 +373,7 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
     return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 # the function takes care of the looping over modes
-def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity', mFilter = []):
+def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity', mFilter = [], symmetry = None):
     
     assert (spec_state.geometry == 'shell'), 'makeIsoradiusSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -405,8 +417,8 @@ def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity', mFilter = []
             continue
 
         # update the field for the current mode
-        evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, theta, phi, kron='isogrid', phi0=phi0, x = x, field = field)
+        evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :],
+                      dataP[i, :], r, theta, phi, kron='isogrid', phi0=phi0, x = x, field = field, symmetry = symmetry)
 
     field2 = []
     for i, f in enumerate(FieldOut):
@@ -425,8 +437,6 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
 
     # raise exception if wrong geometry
     assert (spec_state.geometry == 'shell'), 'evaluate_mode is being used for the wrong geometry: '+spec_state.geometry
-
-    
     
     # prepare the input data
     Field_r = args[0][0]
@@ -439,7 +449,18 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
     phi = args[5]
     phi0 = kwargs.get('phi0', 0.)
     field = kwargs['field']
-
+    
+    if kwargs.get('symmetry', None) == 'asymm':
+        if (l % 2) == 0:
+            modeP *= 0
+        else:
+            modeT *= 0
+    elif kwargs.get('symmetry', None) == 'symm':
+        if (l % 2) == 0:
+            modeT *= 0
+        else:
+            modeP *= 0
+            
     # define factor
     factor = 1. if m==0 else 2.
         
