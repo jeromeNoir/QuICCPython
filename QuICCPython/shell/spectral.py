@@ -269,7 +269,7 @@ def plm(spec_state, l, m, x = None):
 
 
 # the function takes care of the looping over modes
-def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = []):
+def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = [], symmetry = None):
 
     assert (spec_state.geometry == 'shell'), 'makeMeridionalSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -306,14 +306,14 @@ def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = []):
 
         # evaluate mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, theta, None, kron='meridional', phi0=phi0, field = field)
+                                                                     :], r, theta, None, kron='meridional', phi0=phi0, field = field, symmetry = symmetry)
 
     fieldp = field_presentation[field]
     return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 
 # the function takes care of the looping over modes
-def getEquatorialSlice(spec_state, phi0=0, field = 'velocity', mFilter = []):
+def getEquatorialSlice(spec_state, phi0=0, field = 'velocity', mFilter = [], symmetry = None):
 
     assert (spec_state.geometry == 'shell'), 'makeEquatorialSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -354,7 +354,7 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity', mFilter = []):
         
         # evaluate the mode update
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, None, phi, kron='equatorial', phi0=phi0, field = field)
+                                                                     :], r, None, phi, kron='equatorial', phi0=phi0, field = field, symmetry = symmetry)
 
     # carry out the Fourier Transform in phi direction
     field2 = []
