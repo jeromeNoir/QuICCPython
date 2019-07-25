@@ -31,7 +31,6 @@ class BaseState:
         # geometry so far is
         pass
 
-    #Leo: copy this to EpmQuICC
     def __deepcopy__(self, result, state):
         from copy import copy, deepcopy
         
@@ -191,4 +190,3 @@ class SpectralState(BaseState):
         
         # init the self.physRes object for future use
         self.physRes = lambda: None
-

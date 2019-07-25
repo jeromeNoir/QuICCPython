@@ -28,6 +28,27 @@ class BaseState:
         #fin.close() 
     pass
 
+    def __deepcopy__(self, result, state):
+        from copy import copy, deepcopy
+        
+        # does the filename need to be copied?
+
+        # copy geometry
+        result.geometry = copy(self.geometry)
+        
+        # copy parameters
+        result.parameters = lambda :None
+        
+        for param in vars(self.parameters):
+            setattr(result.parameters, param, copy(getattr(self.parameters, param)))
+
+        # copy fields
+        result.fields = lambda:None
+        for field in vars(self.fields):
+            setattr(result.fields, field, copy(getattr(self.fields, field)))
+    
+        return result
+
 class SpectralState(BaseState):
     
     def __init__(self, filename): # , geometry, file_type='QuICC'):
