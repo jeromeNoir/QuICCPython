@@ -269,7 +269,8 @@ def plm(spec_state, l, m, x = None):
 
 
 # the function takes care of the looping over modes
-def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = [], symmetry = None):
+def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = [], symmetry = None,
+                       Lmax = None, Mmax = None, Nmax = None):
 
     assert (spec_state.geometry == 'shell'), 'makeMeridionalSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -303,10 +304,17 @@ def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = [], symme
         
         if m in mFilter:
             continue
+        if Lmax is not None:
+            if l > Lmax:
+                continue
+            
+        if Mmax is not None:
+            if m > Mmax:
+                continue
 
         # evaluate mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, theta, None, kron='meridional', phi0=phi0, field = field, symmetry = symmetry)
+                                                                     :], r, theta, None, kron='meridional', phi0=phi0, field = field, symmetry = symmetry, Nmax = Nmax)
 
     fieldp = field_presentation[field]
     return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
@@ -461,6 +469,12 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
         else:
             modeP *= 0
             
+    # reduce modeT and modeP if Nmax is defined
+    if kwargs.get('Nmax', None) is not None:
+        Nmax = kwargs['Nmax']
+        modeT[Nmax:] = 0.
+        modeP[Nmax:] = 0.
+    
     # define factor
     factor = 1. if m==0 else 2.
         
