@@ -965,10 +965,11 @@ def computeUniformVorticity(spec_state, rmin = None, rmax = None):
     
     proj_vec = Pi*I1*R1*R2
     proj_vec = np.array((proj_vec[0,:]-proj_vec[1,:])/volume)
-
-    omegax = -np.real(np.dot(proj_vec, np.array(dataT[2,:])))[0]*2**.5
-    omegay = np.imag(np.dot(proj_vec, np.array(dataT[2,:])))[0]*2**.5
-    omegaz = np.real(np.dot(proj_vec, np.array(dataT[1,:])))[0]
+    
+    idx = idxlm(spec_state)
+    omegax = -np.real(np.dot(proj_vec, np.array(dataT[idx[1, 1],:])))[0]*2**.5
+    omegay = np.imag(np.dot(proj_vec, np.array(dataT[idx[1, 1],:])))[0]*2**.5
+    omegaz = np.real(np.dot(proj_vec, np.array(dataT[idx[1, 0],:])))[0]
         
     return np.array([omegax, omegay, omegaz])
 
