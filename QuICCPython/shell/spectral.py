@@ -185,7 +185,11 @@ def getPointValue(spec_state, Xvalue, Yvalue, Zvalue,  field='velocity'):
                                                                      :], r, theta, phi, kron='points', x=x, field=field)
 
     fieldp = field_presentation[field]
-    return_value =  {'r': r, 'theta': theta, 'phi': phi, fieldp+'R': FieldOut[0], fieldp+'Theta': FieldOut[1], fieldp+'Phi': FieldOut[2]}
+    
+    # prepare the output in cylindrical coordinates
+    z = np.cos(theta) * r
+    s = np.sin(theta) * r
+    return_value =  {'r': r, 'theta': theta, 'phi': phi, fieldp+'R': FieldOut[0], fieldp+'Theta': FieldOut[1], fieldp+'Phi': FieldOut[2], 's': s, 'z': z}
 
     return return_value
 
@@ -265,7 +269,8 @@ def plm(spec_state, l, m, x = None):
 
 
 # the function takes care of the looping over modes
-def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
+def getMeridionalSlice(spec_state, phi0=0, field='velocity', mFilter = [], symmetry = None,
+                       Lmax = None, Mmax = None, Nmax = None):
 
     assert (spec_state.geometry == 'shell'), 'makeMeridionalSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -296,17 +301,27 @@ def getMeridionalSlice(spec_state, phi0=0, field='velocity' ):
 
         # get the l and m of the index
         l, m = ridx[i]
+        
+        if m in mFilter:
+            continue
+        if Lmax is not None:
+            if l > Lmax:
+                continue
+            
+        if Mmax is not None:
+            if m > Mmax:
+                continue
 
         # evaluate mode
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, theta, None, kron='meridional', phi0=phi0, field = field)
+                                                                     :], r, theta, None, kron='meridional', phi0=phi0, field = field, symmetry = symmetry, Nmax = Nmax)
 
     fieldp = field_presentation[field]
     return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 
 # the function takes care of the looping over modes
-def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
+def getEquatorialSlice(spec_state, phi0=0, field = 'velocity', mFilter = [], symmetry = None):
 
     assert (spec_state.geometry == 'shell'), 'makeEquatorialSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -341,15 +356,20 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
 
         # get the l and m of the index
         l, m = ridx[i]
-
+        
+        if m in mFilter:
+            continue
+        
         # evaluate the mode update
         evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, None, phi, kron='equatorial', phi0=phi0, field = field)
+                                                                     :], r, None, phi, kron='equatorial', phi0=phi0, field = field, symmetry = symmetry)
 
     # carry out the Fourier Transform in phi direction
     field2 = []
     for i, f in enumerate(FieldOut):
         temp = f
+        
+        
         
         f = np.fft.irfft(temp, axis=1)
         f = f * len(f[0,:])
@@ -361,7 +381,7 @@ def getEquatorialSlice(spec_state, phi0=0, field = 'velocity'):
     return {'x': X, 'y': Y, fieldp+'R': FieldOut[0].T, fieldp+'Theta': FieldOut[1].T, fieldp+'Phi': FieldOut[2].T}
 
 # the function takes care of the looping over modes
-def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity'):
+def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity', mFilter = [], symmetry = None):
     
     assert (spec_state.geometry == 'shell'), 'makeIsoradiusSlice is not implemented for the geometry: '+spec_state.geometry
 
@@ -400,9 +420,13 @@ def getIsoradiusSlice(spec_state, r=.5, phi0=0, field = 'velocity'):
         # get the l and m of the index
         l, m = ridx[i]
 
+        # skip if m is in the filtered modes
+        if m in mFilter:
+            continue
+
         # update the field for the current mode
-        evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :], dataP[i,
-                                                                     :], r, theta, phi, kron='isogrid', phi0=phi0, x = x, field = field)
+        evaluate_mode(spec_state, l, m, FieldOut, dataT[i, :],
+                      dataP[i, :], r, theta, phi, kron='isogrid', phi0=phi0, x = x, field = field, symmetry = symmetry)
 
     field2 = []
     for i, f in enumerate(FieldOut):
@@ -421,8 +445,6 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
 
     # raise exception if wrong geometry
     assert (spec_state.geometry == 'shell'), 'evaluate_mode is being used for the wrong geometry: '+spec_state.geometry
-
-    
     
     # prepare the input data
     Field_r = args[0][0]
@@ -435,7 +457,24 @@ def evaluate_mode(spec_state, l, m, *args, **kwargs):
     phi = args[5]
     phi0 = kwargs.get('phi0', 0.)
     field = kwargs['field']
-
+    
+    if kwargs.get('symmetry', None) == 'asymm':
+        if (l % 2) == 0:
+            modeP *= 0
+        else:
+            modeT *= 0
+    elif kwargs.get('symmetry', None) == 'symm':
+        if (l % 2) == 0:
+            modeT *= 0
+        else:
+            modeP *= 0
+            
+    # reduce modeT and modeP if Nmax is defined
+    if kwargs.get('Nmax', None) is not None:
+        Nmax = kwargs['Nmax']
+        modeT[Nmax:] = 0.
+        modeP[Nmax:] = 0.
+    
     # define factor
     factor = 1. if m==0 else 2.
         
@@ -926,10 +965,11 @@ def computeUniformVorticity(spec_state, rmin = None, rmax = None):
     
     proj_vec = Pi*I1*R1*R2
     proj_vec = np.array((proj_vec[0,:]-proj_vec[1,:])/volume)
-
-    omegax = -np.real(np.dot(proj_vec, np.array(dataT[2,:])))[0]*2**.5
-    omegay = np.imag(np.dot(proj_vec, np.array(dataT[2,:])))[0]*2**.5
-    omegaz = np.real(np.dot(proj_vec, np.array(dataT[1,:])))[0]
+    
+    idx = idxlm(spec_state)
+    omegax = -np.real(np.dot(proj_vec, np.array(dataT[idx[1, 1],:])))[0]*2**.5
+    omegay = np.imag(np.dot(proj_vec, np.array(dataT[idx[1, 1],:])))[0]*2**.5
+    omegaz = np.real(np.dot(proj_vec, np.array(dataT[idx[1, 0],:])))[0]
         
     return np.array([omegax, omegay, omegaz])
 
@@ -1128,16 +1168,15 @@ def correctRotation(state, toBeCorrected = ['/velocity/velocity_tor','/velocity/
         pass
 """
 def subtractUniformVorticity(spec_state, omega):
-    #finout = h5py.File(state, 'r+')
-    #eta = finout['/physical/rratio'].value
-    eta = spec_state.parameters.rratio
+
+    from copy import deepcopy
+    state = deepcopy(spec_state)
+    eta = state.parameters.rratio
     a = .5
     b = .5*(1+eta)/(1-eta)
 
-    #dataT = finout['/velocity/velocity_tor'].value
-    dataT = spec_state.fields.velocity_tor
-    #dataT = dataT[:, :, 0] + dataT[:, :, 1]*1j
-
+    dataT = state.fields.velocity_tor
+    
     idx = idxlm(spec_state)
     dataT[idx[1, 0], 0] -= 2*(np.pi/3)**.5 * b * omega[2]
     dataT[idx[1, 0], 1] -= 2*(np.pi/3)**.5 * a * omega[2]*.5
@@ -1145,23 +1184,10 @@ def subtractUniformVorticity(spec_state, omega):
     dataT[idx[1, 1], 0] -= 2*(2*np.pi/3)**.5 * b * (-omega[0] + omega[1]*1j)*.5
     dataT[idx[1, 1], 1] -= 2*(2*np.pi/3)**.5 * a * (-omega[0] + omega[1]*1j)*.5*.5
 
-    """
-    torField = finout['/velocity/velocity_tor'].value
-    torField[:, :, 0] = dataT.real
-    torField[:, :, 1] = dataT.imag
-    finout['/velocity/velocity_tor'][:]=torField
-    finout.close()
-    """
-    pass
+    return state
+
 
 def alignAlongFluidAxis(state, omega):
-
-    #finout = h5py.File(state, 'r+')
-
-    #LL=finout['/truncation/spectral/dim2D'].value 
-    #MM=finout['/truncation/spectral/dim3D'].value 
-    #NN=finout['/truncation/spectral/dim1D'].value 
-    #Ro = finout['/physical/ro'].value
 
     # make a copy of
     from copy import deepcopy
@@ -1170,9 +1196,8 @@ def alignAlongFluidAxis(state, omega):
     LL = spec_state.specRes.L - 1
     MM = spec_state.specRes.M - 1
     NN = spec_state.specRes.N - 1
-    Ro = spec_state.parameters.ro
     # compute Euler angles
-    (alpha, beta, gamma) = computeEulerAngles(omega * Ro)
+    (alpha, beta, gamma) = computeEulerAngles(omega)
     alpha = float(alpha)
     LL = int(LL)
     MM = int(MM)
@@ -1233,23 +1258,18 @@ def computeEulerAngles(omega):
     return (alpha, beta, gamma)
 
 def processState(spec_state):
-    # spec_state is now a QuICCPython data object
-
-    # compute averate vorticity
-    omega = computeAverageVorticity(spec_state)
     
-    # copy the state file ( rotations and subtractions of states are done in place
-    #filename = 'stateRotated.hdf5'
-    #copyfile(state, filename)
-
+    # compute averate vorticity
+    omega = computeUniformVorticity(spec_state)
+    
     # subtract average vorticity
-    subtractUniformVorticity(spec_state, omega)
+    state = subtractUniformVorticity(spec_state, omega)
 
-    # to be rotated: '/velocity/velocity_tor', '/velocity/velocity_pol'
-    #fields = ['/velocity/velocity_tor', '/velocity/velocity_pol']
-    rotateState(filename, omega)
-        
-    pass
+    # rotate the states to put them in the fluid axis
+    Ro = state.parameters.ro 
+    rotatedState = alignAlongFluidAxis(state, Ro*omega)
+    
+    return rotatedState
 
 
 class Integrator():
@@ -1288,7 +1308,7 @@ class Integrator():
         fin.close()
         pass
         
-    def generateGrid(self, spec_state, uniqueTC = False):
+    def generateGrid(self, spec_state, uniqueTC = False, alpha = 10.):
         # here state is needed to obtain the eta parameter    
     
         # import eta value and others
@@ -1309,7 +1329,7 @@ class Integrator():
         self.b = b =.5*(1+eta)/(1-eta)
         
         # compute boundary layer
-        d = 10.*E**.5
+        d = alpha*E**.5
         riBoundary = eta/(1-eta)+d
         roBoundary = 1/(1-eta)-d
         
@@ -1321,8 +1341,8 @@ class Integrator():
         # there are points also on top of the tangent cylinder
 
         # define the number of points in Z direction
-        NzPoints = int(Nmax + Lmax/2)
-        #NzPoints = NsPoints
+        #NzPoints = int(Nmax + Lmax/2)
+        NzPoints = Lmax
         
         # build the cylindrical radial grid
         s = np.linspace(0, roBoundary, 2 * NsPoints + 1)[1::2]
@@ -1335,53 +1355,66 @@ class Integrator():
         # compute the outside  tangent cylinder part
         ss1, no = np.meshgrid(s1, np.ones(2 * NzPoints))
         # compute the height of the column
-        fs1 = (roBoundary ** 2 - s1 ** 2) ** .5
+        h = (roBoundary ** 2 - s1 ** 2) ** .5
         x, w = leggauss(NzPoints * 2)
-        no, zz1 = np.meshgrid(fs1, x)
-        no, ww1 = np.meshgrid(fs1, w)
-        zz1 *= fs1
+        no, zz1 = np.meshgrid(h, x)
+        no, ww1 = np.meshgrid(h, w)
+        zz1 *= h
+        # insert the 1/2 needed by the analytical expression
+        ww1 *= .5
+            
         
         
         # compute the inside of the tangent cylinder
+        # explicitely this computation is done for the upper (N) tangent cylinder
         ss2, no = np.meshgrid(s2, np.ones(2 * NzPoints))
         # this value is (h^+ - h^-)/2, the height of the column 
-        fs2 = ((roBoundary ** 2 - s2 ** 2) ** .5 - (riBoundary ** 2 - s2 ** 2) ** .5) / 2
+        delta_h = ((roBoundary ** 2 - s2 ** 2) ** .5 - (riBoundary ** 2 - s2 ** 2) ** .5) 
         x, w = leggauss(NzPoints)
-        w *= .5
-        no, zz2 = np.meshgrid(fs2, x)
-        no, ww2 = np.meshgrid(fs2, w)
-        zz2 *= fs2
+        #w *= .5
+        no, zz2 = np.meshgrid(delta_h, x)
+        no, ww2 = np.meshgrid(delta_h, w)
+        zz2 *= delta_h / 2
         # this value is (h^+ + h^-)/2
         means = ((roBoundary ** 2 - s2 ** 2) ** .5 + (riBoundary ** 2 - s2 ** 2) ** .5) / 2
         zz2 += means
 
         if uniqueTC:
             zz2 = np.vstack((zz2, -zz2))
-            ww2 = np.vstack((ww2, ww2))
+            # insert a factor of 1/2 that represent the average
+            # between <.>_N and <.>_S
+            ww2 = np.vstack((ww2, ww2)) *.5
+
+            # insert the 1/2 needed by the analytical expression
+            ww2 *= .5
             
             # combine the 2 grids together
             self.ss = np.hstack((ss2, ss1))
             self.zz = np.hstack((zz2, zz1))
             self.ww = np.hstack((ww2, ww1))
             # prepare the division weight
-            self.fs = np.hstack([fs2*2, fs1]) * 2
+            #self.fs = np.hstack([fs2*2, fs1]) * 2
             
             self.uniqueTC = uniqueTC
         else: # if uniqueTC == False
             zz3 = np.vstack((zz2, np.zeros_like(zz2)))
-            zz4 = np.vstack((np.zeros_like(zz2), zz2))
+            zz4 = np.vstack((np.zeros_like(zz2), -zz2))
             ww3 = np.vstack((ww2, np.zeros_like(ww2)))
             ww4 = np.vstack((np.zeros_like(ww2), ww2))
 
+            # insert the 1/2 needed by the analytical expression
+            ww3 *= .5
+            ww4 *= .5
+            
             # combine the 2 grids together
             self.ss = np.hstack((ss2, ss2, ss1))
             self.zz = np.hstack((zz3, zz4, zz1))
             self.ww = np.hstack((ww3, ww4, ww1))
             # prepare the division weight
-            self.fs = np.hstack([fs2, fs2, fs1]) * 2
+            #self.fs = np.hstack([fs2, fs2, fs1]) * 2
 
-            self.domain_index = np.hstack([1*np.ones_like(fs2),\
-                                           -1*np.ones_like(fs2), np.zeros_like(fs1)])
+            self.domain_index = np.hstack([1*np.ones_like(delta_h),\
+                                           -1*np.ones_like(delta_h), np.zeros_like(h)])
 
             self.uniqueTC = uniqueTC
         # prepare the grid for tchebyshev polynomials
@@ -1395,15 +1428,15 @@ class Integrator():
         return
 
 def getZIntegrator(spec_state, nS, field, maxN, maxL, maxM, uniqueTC =
-                   False):
+                   False, alpha = 10.):
     
     zInt = Integrator((nS, maxN, maxL, maxM))
-    zInt.generateGrid(spec_state, uniqueTC = uniqueTC)
+    zInt.generateGrid(spec_state, uniqueTC = uniqueTC, alpha = alpha)
         
     return zInt
 
 def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
-                     None, maxM = None, maxN = None, uniqueTC = False):
+                     None, maxM = None, maxN = None, uniqueTC = False, alpha=10.):
 
     assert field in ['uPhi', 'uS', 'vortZ', 'uZ'], field+' not possible as a field option for computeZIntegral'
     
@@ -1439,7 +1472,7 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
         
         # change the way getZIntegrator works
         zInt = getZIntegrator(spec_state, nS, None, maxN, maxL, maxM,
-                              uniqueTC = uniqueTC)
+                              uniqueTC = uniqueTC, alpha = alpha)
 
     else:
 
@@ -1460,7 +1493,7 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
     xx = zInt.xx
     xx_th = zInt.ccos_theta
     ssin_theta = zInt.ssin_theta
-    fs = zInt.fs
+    #fs = zInt.fs
     # prepare resolution for the integrator
     Ns = ss.shape[1]
     # edit: now Ns == NsPoints
@@ -1508,7 +1541,8 @@ def computeZIntegral(spec_state, field, nS, integrator = None, maxL =
         plm_sin_storage = tools.plm_sin(Lmax, m, xtheta)
 
         # take into account the factor for the fourier transform
-        factor = 1. if m==0 else 2.
+        #factor = 1. if m==0 else 2.
+        factor = 1.
 
         for l in range(m, Lmax):
             
@@ -1626,8 +1660,8 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
     # copy spectral results so that it doesnt delete the data
     
     # function used to implemented to generate the real representation of the field
-    s = spectral_result['s']
-    m = spectral_result['m']
+    s = spectral_result['s'].flatten()
+    m = spectral_result['m'].flatten()
 
     # generate the real grid for plotting
     mn = 2*(len(m)-1)
@@ -1656,9 +1690,18 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
 
     # carry out the inverse fourier transform
     for k in spectral_result.keys():
-
+        
+        # skip over all the objects which are not np.ndarrays, avoid
+        # problems for the next if clause
+        if not isinstance(spectral_result[k], np.ndarray):
+            continue
+        
         # skip over all the non matrix fields
-        if spectral_result[k].ndim <2:
+        # if spectral_result[k].ndim <2:
+        #     continue
+        # TODO: problem using scipy.io.loadmat transforms s and m into
+        # (1,ndim) vectors
+        if k in ['s', 'm', 'domain_index']:
             continue
 
         # truncate the spectrum if needed
@@ -1667,6 +1710,7 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
             temp[m,:] = 0.
         # compute the tranforms
         field = np.fft.irfft(temp ,axis=0)
+        field *= len(field[:, 0])
         field = np.vstack((field,field[0, :]))
         if spectral_result.get('domain_index', None) is None:
             # attach the right columns in the right place
@@ -1681,3 +1725,38 @@ def computeGeostrophicPhysical(spectral_result, filter=[]):
         result['domain_index'] = spectral_result['domain_index']
     
     return result
+
+
+def removeUniformVorticity(spec_state, omega):
+
+    from copy import deepcopy
+    state = deepcopy(spec_state)
+    eta = state.parameters.rratio
+    a = .5
+    b = .5*(1+eta)/(1-eta)
+
+    dataT = spec_state.fields.velocity_tor
+        
+    dataT[1, 0] -= 2*(np.pi/3)**.5 * b * omega[2]
+    dataT[1, 1] -= 2*(np.pi/3)**.5 * a * omega[2]*.5
+    
+    dataT[2, 0] -= 2*(2*np.pi/3)**.5 * b * (-omega[0] + omega[1]*1j)*.5
+    dataT[2, 1] -= 2*(2*np.pi/3)**.5 * a * (-omega[0] + omega[1]*1j)*.5*.5
+        
+    return state
+
+
+def process_state(spec_state):
+
+    # compute averate vorticity
+    omega = computeUniformVorticity(spec_state)
+        
+    # subtract average vorticity
+    removeUniformVorticity(spec_state, omega)
+
+    # rotate the state
+    Ro = state.parameters.ro 
+    rotatedState = alignAlongFluidAxis(state, Ro*omega)
+            
+    return rotatedState
+
