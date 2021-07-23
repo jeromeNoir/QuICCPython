@@ -46,7 +46,7 @@ Next you will download QuICCPython and obtain the submodules
 
     git clone https://github.com/jeromeNoir/QuICCPython.git
     cd QuICCPython
-    git submodule init
+    sudo git submodule init
     git submodule update
 
 - install quicc-bind
