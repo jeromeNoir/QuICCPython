@@ -46,8 +46,13 @@ Next you will download QuICCPython and obtain the submodules
 
     git clone https://github.com/jeromeNoir/QuICCPython.git
     cd QuICCPython
-    sudo git submodule init
-    git submodule update
+    From Jerome: the following doesn't work for me
+    	-git submodule init
+    	-git submodule update
+    	instead I do:
+    	-sudo git submodule init
+    	-I upload manually the folder "eigen-git-mirror @ 1456fe2" on our git 
+    	-copy it into the QuICCPyhton directory and rename it "eigen-git-mirror"
 
 - install quicc-bind
 
